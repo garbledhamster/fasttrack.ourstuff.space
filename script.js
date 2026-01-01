@@ -203,6 +203,8 @@ let stateUnsubscribe = null;
 let notesUnsubscribe = null;
 let notesLoaded = false;
 let notes = [];
+let noteEditorCloseTimeout = null;
+let notesDrawerCloseTimeout = null;
 let editingNoteId = null;
 let editingNoteDateKey = null;
 let editingNoteContext = null;
@@ -428,6 +430,10 @@ async function deleteNote(noteId) {
 function openNoteEditor(note = null) {
   const modal = $("note-editor-modal");
   if (!modal) return;
+  if (noteEditorCloseTimeout) {
+    clearTimeout(noteEditorCloseTimeout);
+    noteEditorCloseTimeout = null;
+  }
   editingNoteId = note?.id || null;
   editingNoteDateKey = note?.dateKey || formatDateKey(new Date());
   editingNoteContext = note?.fastContext ?? buildFastContext();
@@ -438,6 +444,7 @@ function openNoteEditor(note = null) {
   updateNoteEditorMeta();
   $("note-editor-delete").classList.toggle("hidden", !editingNoteId);
   modal.classList.remove("hidden");
+  requestAnimationFrame(() => modal.classList.add("is-open"));
 }
 
 function updateNoteEditorMeta() {
@@ -469,7 +476,11 @@ function updateNoteEditorMeta() {
 function closeNoteEditor() {
   const modal = $("note-editor-modal");
   if (!modal) return;
-  modal.classList.add("hidden");
+  modal.classList.remove("is-open");
+  if (noteEditorCloseTimeout) clearTimeout(noteEditorCloseTimeout);
+  noteEditorCloseTimeout = setTimeout(() => {
+    modal.classList.add("hidden");
+  }, 250);
   $("note-editor-content").value = "";
   editingNoteId = null;
   editingNoteDateKey = null;
@@ -1049,7 +1060,7 @@ function initTabs() {
 }
 
 function switchTab(tab) {
-  ["timer", "history", "notes", "settings"].forEach(id => {
+  ["timer", "history", "settings"].forEach(id => {
     const section = $("tab-" + id);
     const btn = document.querySelector(`nav .nav-btn[data-tab="${id}"]`);
     const active = id === tab;
@@ -1058,6 +1069,16 @@ function switchTab(tab) {
     btn.classList.toggle("text-slate-100", active);
     btn.classList.toggle("text-slate-500", !active);
   });
+  const notesBtn = document.querySelector('nav .nav-btn[data-tab="notes"]');
+  const notesActive = tab === "notes";
+  notesBtn.classList.toggle("nav-btn-active", notesActive);
+  notesBtn.classList.toggle("text-slate-100", notesActive);
+  notesBtn.classList.toggle("text-slate-500", !notesActive);
+  if (notesActive) {
+    openNotesDrawer();
+  } else {
+    closeNotesDrawer();
+  }
   if (tab === "history") {
     renderCalendar();
     renderDayDetails();
@@ -1066,6 +1087,27 @@ function switchTab(tab) {
   }
   if (tab === "notes") renderNotes();
   if (tab === "settings") renderSettings();
+}
+
+function openNotesDrawer() {
+  const drawer = $("tab-notes");
+  if (!drawer) return;
+  if (notesDrawerCloseTimeout) {
+    clearTimeout(notesDrawerCloseTimeout);
+    notesDrawerCloseTimeout = null;
+  }
+  drawer.classList.remove("hidden");
+  requestAnimationFrame(() => drawer.classList.add("is-open"));
+}
+
+function closeNotesDrawer() {
+  const drawer = $("tab-notes");
+  if (!drawer || drawer.classList.contains("hidden")) return;
+  drawer.classList.remove("is-open");
+  if (notesDrawerCloseTimeout) clearTimeout(notesDrawerCloseTimeout);
+  notesDrawerCloseTimeout = setTimeout(() => {
+    drawer.classList.add("hidden");
+  }, 250);
 }
 
 function initNavTooltips() {
