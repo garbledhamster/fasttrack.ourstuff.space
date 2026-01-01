@@ -1059,7 +1059,7 @@ function initTabs() {
 }
 
 function switchTab(tab) {
-  ["timer", "history", "notes", "settings"].forEach(id => {
+  ["timer", "history", "settings"].forEach(id => {
     const section = $("tab-" + id);
     const btn = document.querySelector(`nav .nav-btn[data-tab="${id}"]`);
     const active = id === tab;
@@ -1068,6 +1068,16 @@ function switchTab(tab) {
     btn.classList.toggle("text-slate-100", active);
     btn.classList.toggle("text-slate-500", !active);
   });
+  const notesBtn = document.querySelector('nav .nav-btn[data-tab="notes"]');
+  const notesActive = tab === "notes";
+  notesBtn.classList.toggle("nav-btn-active", notesActive);
+  notesBtn.classList.toggle("text-slate-100", notesActive);
+  notesBtn.classList.toggle("text-slate-500", !notesActive);
+  if (notesActive) {
+    openNotesDrawer();
+  } else {
+    closeNotesDrawer();
+  }
   if (tab === "history") {
     renderCalendar();
     renderDayDetails();
@@ -1076,6 +1086,27 @@ function switchTab(tab) {
   }
   if (tab === "notes") renderNotes();
   if (tab === "settings") renderSettings();
+}
+
+function openNotesDrawer() {
+  const drawer = $("tab-notes");
+  if (!drawer) return;
+  if (notesDrawerCloseTimeout) {
+    clearTimeout(notesDrawerCloseTimeout);
+    notesDrawerCloseTimeout = null;
+  }
+  drawer.classList.remove("hidden");
+  requestAnimationFrame(() => drawer.classList.add("is-open"));
+}
+
+function closeNotesDrawer() {
+  const drawer = $("tab-notes");
+  if (!drawer || drawer.classList.contains("hidden")) return;
+  drawer.classList.remove("is-open");
+  if (notesDrawerCloseTimeout) clearTimeout(notesDrawerCloseTimeout);
+  notesDrawerCloseTimeout = setTimeout(() => {
+    drawer.classList.add("hidden");
+  }, 250);
 }
 
 function initNavTooltips() {
