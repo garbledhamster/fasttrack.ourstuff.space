@@ -208,7 +208,7 @@ let editingNoteId = null;
 let editingNoteDateKey = null;
 let editingNoteContext = null;
 let editingNoteCreatedAt = null;
-let editingNoteTimestamp = null;
+let editingNoteOpenedAt = null;
 
 let navHoldTimer = null;
 let navHoldShown = false;
@@ -437,7 +437,7 @@ function openNoteEditor(note = null) {
   editingNoteDateKey = note?.dateKey || formatDateKey(new Date());
   editingNoteContext = note?.fastContext ?? buildFastContext();
   editingNoteCreatedAt = note?.createdAt ?? null;
-  editingNoteTimestamp = note?.updatedAt || note?.createdAt || null;
+  editingNoteOpenedAt = Date.now();
 
   $("note-editor-content").value = note?.text || "";
   updateNoteEditorMeta();
@@ -455,7 +455,13 @@ function updateNoteEditorMeta() {
   const dateLabel = dateObj
     ? dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
     : "Unknown date";
-  const timeLabel = editingNoteTimestamp ? formatTimeShort(new Date(editingNoteTimestamp)) : "";
+  const createdLabel = editingNoteCreatedAt
+    ? `Created ${formatTimeShort(new Date(editingNoteCreatedAt))}`
+    : null;
+  const openedLabel = editingNoteOpenedAt
+    ? `Opened ${formatTimeShort(new Date(editingNoteOpenedAt))}`
+    : null;
+  const timeLabel = [createdLabel, openedLabel].filter(Boolean).join(" • ");
   dateEl.textContent = timeLabel ? `${dateLabel} • ${timeLabel}` : dateLabel;
 
   const isActive = Boolean(editingNoteContext?.wasActive);
@@ -485,7 +491,7 @@ function closeNoteEditor() {
   editingNoteDateKey = null;
   editingNoteContext = null;
   editingNoteCreatedAt = null;
-  editingNoteTimestamp = null;
+  editingNoteOpenedAt = null;
 }
 
 async function saveNoteEditor() {
