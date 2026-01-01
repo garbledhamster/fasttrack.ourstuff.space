@@ -62,7 +62,7 @@
   </div>
 
   <div id="app" class="flex flex-col min-h-screen hidden">
-    <header class="px-4 pt-4 pb-3 flex items-center justify-between">
+    <header class="px-4 pt-4 md:pt-16 pb-3 flex items-center justify-between">
       <div class="flex flex-col">
         <h1 class="text-xl md:text-lg font-semibold tracking-tight">Fast Track</h1>
         <p id="header-subtitle" class="text-sm md:text-xs text-muted">No active fast</p>
@@ -241,7 +241,7 @@
       </section>
     </main>
 
-    <nav class="fixed bottom-0 inset-x-0 border-t border-default surface-appbar backdrop-blur pb-[env(safe-area-inset-bottom)]">
+    <nav class="fixed bottom-0 md:bottom-auto md:top-0 inset-x-0 border-t md:border-t-0 md:border-b border-slate-800 bg-slate-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)] md:pb-0 md:pt-[env(safe-area-inset-top)]">
       <div class="flex h-20 md:h-14">
         <button data-tab="timer" data-label="Timer" class="nav-btn flex-1 flex items-center justify-center text-default nav-btn-active">
           <div class="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2">
@@ -302,6 +302,21 @@
       </div>
       <ul id="modal-bullets" class="list-disc list-inside text-sm md:text-xs text-muted space-y-1 mb-3"></ul>
       <button id="modal-use-type" class="w-full py-3 md:py-2.5 rounded-full button-primary text-sm md:text-xs font-semibold">Use this fast type</button>
+    </div>
+  </div>
+
+  <div id="confirm-fast-modal" class="fixed inset-0 z-40 hidden">
+    <div class="confirm-fast-backdrop absolute inset-0 bg-black/50"></div>
+    <div class="absolute inset-x-0 bottom-0 rounded-t-3xl bg-slate-950 border-t border-slate-800 p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div id="confirm-fast-title" class="text-base md:text-sm font-medium text-slate-50">Start this fast?</div>
+        <button id="confirm-fast-close" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full bg-slate-900 border border-slate-700">Close</button>
+      </div>
+      <p id="confirm-fast-message" class="text-sm md:text-xs text-slate-300 mb-4"></p>
+      <div class="flex gap-2">
+        <button id="confirm-fast-cancel" class="flex-1 py-3 md:py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm md:text-xs font-medium">Cancel</button>
+        <button id="confirm-fast-accept" class="flex-1 py-3 md:py-2.5 rounded-xl bg-brand-500 text-slate-950 text-sm md:text-xs font-semibold">Confirm</button>
+      </div>
     </div>
   </div>
 
