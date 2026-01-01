@@ -204,7 +204,6 @@ let notesUnsubscribe = null;
 let notesLoaded = false;
 let notes = [];
 let noteEditorCloseTimeout = null;
-let notesDrawerCloseTimeout = null;
 let editingNoteId = null;
 let editingNoteDateKey = null;
 let editingNoteContext = null;
