@@ -1,4 +1,7 @@
-body { -webkit-tap-highlight-color: transparent; }
+body {
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
 
 #app {
   width: min(100%, 500px);
