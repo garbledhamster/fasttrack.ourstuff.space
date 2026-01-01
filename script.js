@@ -201,6 +201,7 @@ let needsUnlock = false;
 let authRememberChoice = null;
 let stateUnsubscribe = null;
 let notesUnsubscribe = null;
+let notesDrawerCloseTimeout = null; // ✅ FIX: declared (was referenced but not defined)
 let notesLoaded = false;
 let notes = [];
 let noteEditorCloseTimeout = null;
@@ -532,16 +533,33 @@ function startNotesListener(uid) {
   stopNotesListener();
   notesLoaded = false;
   notes = [];
-  notesUnsubscribe = onSnapshot(getNotesCollectionRef(uid), async snap => {
-    try {
-      const normalized = await Promise.all(snap.docs.map(normalizeNoteSnapshot));
+  renderNotes(); // ✅ FIX: make UI show "Loading…" immediately
+
+  notesUnsubscribe = onSnapshot(
+    getNotesCollectionRef(uid),
+    async (snap) => {
+      try {
+        const normalized = await Promise.all(snap.docs.map(normalizeNoteSnapshot));
+        notesLoaded = true;
+        notes = normalized.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        renderNotes();
+      } catch (err) {
+        handleNotesDecryptError(err);
+      }
+    },
+    (err) => {
+      // ✅ FIX: without this, permission/AppCheck errors = "Loading notes…" forever
+      console.error("Notes listener failed:", err);
       notesLoaded = true;
-      notes = normalized.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      notes = [];
       renderNotes();
-    } catch (err) {
-      handleNotesDecryptError(err);
+
+      const code = err?.code || "";
+      if (code === "permission-denied") showToast("Notes blocked by Firestore rules / App Check.");
+      else if (code === "failed-precondition") showToast("Notes failed-precondition (index/AppCheck/offline).");
+      else showToast(`Notes failed to load (${code || "unknown error"})`);
     }
-  });
+  );
 }
 
 function stopStateListener() {
