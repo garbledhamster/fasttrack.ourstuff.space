@@ -126,6 +126,7 @@ let editingNoteContext = null;
 let editingNoteCreatedAt = null;
 let editingNoteOpenedAt = null;
 let editingNoteInitialText = "";
+let editingHistoryId = null;
 
 let navHoldTimer = null;
 let navHoldShown = false;
@@ -1796,6 +1797,11 @@ function initButtons() {
   $("edit-start-now").addEventListener("click", () => { $("edit-start-input").value = toLocalInputValue(new Date()); });
   $("edit-start-save").addEventListener("click", saveEditedStartTime);
 
+  $("edit-history-close").addEventListener("click", closeEditHistoryModal);
+  $("edit-history-start-now").addEventListener("click", () => { $("edit-history-start").value = toLocalInputValue(new Date()); });
+  $("edit-history-end-now").addEventListener("click", () => { $("edit-history-end").value = toLocalInputValue(new Date()); });
+  $("edit-history-save").addEventListener("click", saveEditedHistoryTimes);
+
   $("new-note-btn").addEventListener("click", () => openNoteEditor());
   const noteEditorBackdrop = document.querySelector("#note-editor-modal .note-editor-backdrop");
   if (noteEditorBackdrop) noteEditorBackdrop.addEventListener("click", closeNoteEditor);
@@ -2365,6 +2371,55 @@ function saveEditedStartTime() {
   showToast("Start time updated");
 }
 
+function openEditHistoryModal(entry) {
+  if (!entry || entry.isActive) return;
+  editingHistoryId = entry.id;
+  $("edit-history-start").value = toLocalInputValue(new Date(entry.startTimestamp));
+  $("edit-history-end").value = toLocalInputValue(new Date(entry.endTimestamp));
+  $("edit-history-modal").classList.remove("hidden");
+}
+
+function closeEditHistoryModal() {
+  $("edit-history-modal").classList.add("hidden");
+  editingHistoryId = null;
+}
+
+function saveEditedHistoryTimes() {
+  if (!editingHistoryId) return;
+  const entry = state.history.find(item => item.id === editingHistoryId);
+  if (!entry) { closeEditHistoryModal(); return; }
+
+  const startValue = $("edit-history-start").value;
+  const endValue = $("edit-history-end").value;
+  if (!startValue || !endValue) { showToast("Invalid time"); return; }
+
+  const startDate = new Date(startValue);
+  const endDate = new Date(endValue);
+  if (!isFinite(startDate.getTime()) || !isFinite(endDate.getTime())) {
+    showToast("Invalid time");
+    return;
+  }
+  if (endDate <= startDate) {
+    showToast("End time must be after start time");
+    return;
+  }
+
+  entry.startTimestamp = startDate.getTime();
+  entry.endTimestamp = endDate.getTime();
+  const durationHours = (entry.endTimestamp - entry.startTimestamp) / 3600000;
+  entry.durationHours = Math.round(durationHours * 100) / 100;
+
+  selectedDayKey = formatDateKey(new Date(entry.startTimestamp));
+  calendarMonth = startOfMonth(new Date(entry.startTimestamp));
+
+  void saveState();
+  closeEditHistoryModal();
+  renderCalendar();
+  renderDayDetails();
+  renderRecentFasts();
+  showToast("Fast updated");
+}
+
 function showToast(msg) {
   const t = $("toast");
   t.textContent = msg;
@@ -2555,6 +2610,21 @@ function renderDayDetails() {
     left.appendChild(time);
 
     row.appendChild(left);
+
+    if (!e.isActive) {
+      const actions = document.createElement("div");
+      actions.className = "flex items-center gap-2";
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "button-outline border text-xs md:text-[11px] px-3 py-2 md:px-2 md:py-1 rounded-full";
+      editBtn.textContent = "Edit";
+      editBtn.addEventListener("click", () => openEditHistoryModal(e));
+
+      actions.appendChild(editBtn);
+      row.appendChild(actions);
+    }
+
     list.appendChild(row);
   });
 }
