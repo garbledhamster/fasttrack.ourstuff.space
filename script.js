@@ -19,6 +19,7 @@ import {
   doc,
   addDoc,
   getDoc,
+  getDocFromServer,
   setDoc,
   deleteDoc,
   onSnapshot
@@ -982,6 +983,10 @@ function handleNotesDecryptError(err) {
 
 async function resolveEncryptedPayload(uid) {
   try {
+    const snap = await getDocFromServer(getStateDocRef(uid));
+    if (snap.exists()) return snap.data()?.payload || null;
+  } catch {}
+  try {
     const snap = await getDoc(getStateDocRef(uid));
     if (snap.exists()) return snap.data()?.payload || null;
   } catch {}
@@ -1801,6 +1806,7 @@ function initButtons() {
   $("edit-history-start-now").addEventListener("click", () => { $("edit-history-start").value = toLocalInputValue(new Date()); });
   $("edit-history-end-now").addEventListener("click", () => { $("edit-history-end").value = toLocalInputValue(new Date()); });
   $("edit-history-save").addEventListener("click", saveEditedHistoryTimes);
+  $("edit-history-delete").addEventListener("click", deleteEditedHistoryEntry);
 
   $("new-note-btn").addEventListener("click", () => openNoteEditor());
   const noteEditorBackdrop = document.querySelector("#note-editor-modal .note-editor-backdrop");
@@ -2420,6 +2426,26 @@ function saveEditedHistoryTimes() {
   showToast("Fast updated");
 }
 
+function deleteEditedHistoryEntry() {
+  if (!editingHistoryId) return;
+  deleteHistoryEntry(editingHistoryId);
+}
+
+function deleteHistoryEntry(entryId) {
+  if (!entryId) return;
+  const entry = state.history.find(item => item.id === entryId);
+  if (!entry) return;
+  if (!confirm("Delete this fast? This cannot be undone.")) return;
+
+  state.history = state.history.filter(item => item.id !== entryId);
+  if (editingHistoryId === entryId) closeEditHistoryModal();
+  void saveState();
+  renderCalendar();
+  renderDayDetails();
+  renderRecentFasts();
+  showToast("Fast deleted");
+}
+
 function showToast(msg) {
   const t = $("toast");
   t.textContent = msg;
@@ -2621,7 +2647,14 @@ function renderDayDetails() {
       editBtn.textContent = "Edit";
       editBtn.addEventListener("click", () => openEditHistoryModal(e));
 
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "button-danger border text-xs md:text-[11px] px-3 py-2 md:px-2 md:py-1 rounded-full";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", () => deleteHistoryEntry(e.id));
+
       actions.appendChild(editBtn);
+      actions.appendChild(deleteBtn);
       row.appendChild(actions);
     }
 
