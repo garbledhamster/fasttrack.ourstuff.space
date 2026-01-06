@@ -154,6 +154,19 @@ body.bg-slate-950 {
   background: color-mix(in srgb, var(--surface-color) 50%, transparent);
 }
 
+.note-image-frame {
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: var(--surface-color);
+}
+
+.note-image-frame img {
+  width: 100%;
+  display: block;
+}
+
 .ring-emoji-layer {
   pointer-events: none;
   z-index: 2;

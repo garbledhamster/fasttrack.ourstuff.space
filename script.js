@@ -536,12 +536,27 @@ function openNoteEditor(note = null) {
   editingNoteCreatedAt = note?.createdAt ?? null;
   editingNoteOpenedAt = Date.now();
 
+  syncNoteEditorImage(note);
   $("note-editor-content").value = note?.text || "";
   editingNoteInitialText = $("note-editor-content").value.trim();
   updateNoteEditorMeta();
   $("note-editor-delete").classList.toggle("hidden", !editingNoteId);
   modal.classList.remove("hidden");
   requestAnimationFrame(() => modal.classList.add("is-open"));
+}
+
+function syncNoteEditorImage(note) {
+  const imageFrame = $("note-editor-image-frame");
+  const imageEl = $("note-editor-image");
+  if (!imageFrame || !imageEl) return;
+  const imageUrl = typeof note?.imageUrl === "string" ? note.imageUrl.trim() : "";
+  if (imageUrl) {
+    imageEl.src = imageUrl;
+    imageFrame.classList.remove("hidden");
+  } else {
+    imageEl.removeAttribute("src");
+    imageFrame.classList.add("hidden");
+  }
 }
 
 function isTouchDevice() {
