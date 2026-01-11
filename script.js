@@ -2899,7 +2899,7 @@ function renderRingEmojis(type, size) {
 
   const milestones = Array.isArray(type.milestones) ? type.milestones : [];
   if (!milestones.length || !size) {
-    title.textContent = "Tap an emoji to see what’s happening";
+    title.textContent = "Tap an orb to see what’s happening";
     detail.textContent = "";
     return;
   }
@@ -2931,7 +2931,7 @@ function renderRingEmojis(type, size) {
     const selected = milestones.find(m => `${type.id}-${m.hour}` === ringEmojiSelectionKey);
     updateRingEmojiPanel(type, selected);
   } else {
-    title.textContent = "Tap an emoji to see what’s happening";
+    title.textContent = "Tap an orb to see what’s happening";
     detail.textContent = `${type.label} milestones wrap the ring.`;
   }
 
@@ -2956,7 +2956,7 @@ function updateRingEmojiPanel(type, milestone) {
   if (!title || !detail) return;
 
   if (!milestone) {
-    title.textContent = "Tap an emoji to see what’s happening";
+    title.textContent = "Tap an orb to see what’s happening";
     detail.textContent = `${type.label} milestones wrap the ring.`;
     return;
   }
