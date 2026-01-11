@@ -8,6 +8,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendEmailVerification,
+  sendPasswordResetEmail,
   reload,
   setPersistence,
   browserLocalPersistence,
@@ -1447,6 +1448,7 @@ function initAuthListener() {
 function initAuthUI() {
   const form = $("auth-form");
   const toggle = $("auth-toggle");
+  const resetBtn = $("auth-reset");
   const resendBtn = $("verify-email-resend");
   const refreshBtn = $("verify-email-refresh");
   const signOutBtn = $("verify-email-signout");
@@ -1457,8 +1459,7 @@ function initAuthUI() {
     authMode = authMode === "sign-in" ? "sign-up" : "sign-in";
     updateAuthMode();
   });
-  passwordInput.addEventListener("input", updatePasswordMatchIndicator);
-  confirmInput.addEventListener("input", updatePasswordMatchIndicator);
+  resetBtn.addEventListener("click", handlePasswordReset);
   resendBtn.addEventListener("click", async () => {
     const user = auth.currentUser;
     if (!user) return;
@@ -1530,6 +1531,7 @@ function updateAuthMode() {
   $("auth-submit").textContent = isSignUp ? "Create account" : "Sign in";
   $("auth-toggle-text").textContent = isSignUp ? "Already have an account?" : "New here?";
   $("auth-toggle").textContent = isSignUp ? "Sign in" : "Create an account";
+  $("auth-reset").classList.toggle("hidden", isSignUp);
   $("auth-error").classList.add("hidden");
   $("auth-error").textContent = "";
   setVerificationPanel({ visible: false });
@@ -1667,6 +1669,35 @@ async function handleAuthSubmit(e) {
   } catch (err) {
     errorEl.textContent = err?.message || "Unable to authenticate. Please try again.";
     errorEl.classList.remove("hidden");
+  }
+}
+
+async function handlePasswordReset() {
+  const email = $("auth-email").value.trim();
+  const errorEl = $("auth-error");
+  const resetBtn = $("auth-reset");
+
+  errorEl.classList.add("hidden");
+  errorEl.textContent = "";
+
+  if (!email) {
+    errorEl.textContent = "Enter your email to reset your password.";
+    errorEl.classList.remove("hidden");
+    return;
+  }
+
+  resetBtn.disabled = true;
+  resetBtn.classList.add("opacity-60", "pointer-events-none");
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showToast("Password reset email sent.");
+  } catch (err) {
+    errorEl.textContent = err?.message || "Unable to send password reset email.";
+    errorEl.classList.remove("hidden");
+  } finally {
+    resetBtn.disabled = false;
+    resetBtn.classList.remove("opacity-60", "pointer-events-none");
   }
 }
 
