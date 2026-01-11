@@ -1629,6 +1629,7 @@ function switchTab(tab) {
   if (tab === "calories") renderCalories();
   if (tab === "settings") renderSettings();
 
+  renderFastButton();
   renderCalorieButton();
 }
 
@@ -1814,6 +1815,19 @@ function renderCalorieRing() {
   if (panelDetail) panelDetail.textContent = panelDetailText;
 }
 
+function renderFastButton() {
+  const button = $("fast-btn");
+  const modeLabel = $("fast-label-mode");
+  const valueLabel = $("fast-label-value");
+  if (!button || !modeLabel || !valueLabel) return;
+
+  const mode = $("timer-mode");
+  const main = $("timer-main");
+  modeLabel.textContent = mode?.textContent || "Fast";
+  valueLabel.textContent = main?.textContent || "00:00:00";
+  button.setAttribute("aria-pressed", String(currentTab === "timer"));
+}
+
 function renderCalorieButton() {
   const button = $("calorie-btn");
   const label = $("calorie-label");
@@ -1966,6 +1980,11 @@ function usePendingFastType() {
 function initButtons() {
   $("start-fast-btn").addEventListener("click", confirmStartFast);
   $("stop-fast-btn").addEventListener("click", confirmStopFast);
+
+  $("fast-btn").addEventListener("click", () => {
+    if (notesOverlayOpen) closeNotesDrawer();
+    switchTab("timer");
+  });
 
   $("calorie-btn").addEventListener("click", () => {
     if (notesOverlayOpen) closeNotesDrawer();
@@ -2467,6 +2486,7 @@ function updateTimer() {
     $("start-fast-btn").classList.remove("hidden");
     $("stop-fast-btn").classList.add("hidden");
     $("meta-start-btn").disabled = true;
+    renderFastButton();
     return;
   }
 
@@ -2518,6 +2538,7 @@ function updateTimer() {
       sub.textContent = "Tap time to change view";
     }
   }
+  renderFastButton();
 }
 
 function trackMilestoneProgress(type) {
