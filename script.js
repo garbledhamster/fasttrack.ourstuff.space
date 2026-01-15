@@ -3287,12 +3287,36 @@ async function onAlertsButton() {
 
 function renderAlertsPill() {
   const dot = $("alerts-dot");
+  const text = $("alerts-text");
 
-  if (!("Notification" in window)) { dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-slate-600"; return; }
-  if (Notification.permission === "denied") { dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-red-500"; return; }
-  if (Notification.permission === "default") { dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-slate-600"; return; }
-  if (state.settings.alertsEnabled) { dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-emerald-400"; }
-  else { dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-slate-600"; }
+  if (!("Notification" in window)) { 
+    dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-slate-600"; 
+    text.textContent = "Off";
+    text.className = "text-xs md:text-[11px] text-slate-600";
+    return; 
+  }
+  if (Notification.permission === "denied") { 
+    dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-red-500"; 
+    text.textContent = "Off";
+    text.className = "text-xs md:text-[11px] text-red-500";
+    return; 
+  }
+  if (Notification.permission === "default") { 
+    dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-slate-600"; 
+    text.textContent = "Off";
+    text.className = "text-xs md:text-[11px] text-slate-600";
+    return; 
+  }
+  if (state.settings.alertsEnabled) { 
+    dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-emerald-400"; 
+    text.textContent = "On";
+    text.className = "text-xs md:text-[11px] text-emerald-400";
+  }
+  else { 
+    dot.className = "w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-slate-600"; 
+    text.textContent = "Off";
+    text.className = "text-xs md:text-[11px] text-slate-600";
+  }
 }
 
 async function sendNotification(title, body) {
