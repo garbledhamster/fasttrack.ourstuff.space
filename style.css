@@ -69,11 +69,11 @@ body.bg-slate-950 {
   }
 
   .tracker-tab .tracker-ring-wrap {
-    margin-top: clamp(0.5rem, 2vh, 1.25rem);
+    margin-top: clamp(0.25rem, 1vh, 0.5rem);
   }
 
   .tracker-tab .ring-shell {
-    width: min(100%, min(18rem, 52vh));
+    width: min(100%, min(18rem, 58vh));
   }
 
   .tracker-primary-action {
