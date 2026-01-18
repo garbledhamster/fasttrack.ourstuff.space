@@ -163,9 +163,14 @@ Install Node.js from https://nodejs.org/
 Run `npm install` to install all dependencies.
 
 ### Java errors when running vnu
-The Nu Html Checker requires Java to be installed. Install Java from:
+The Nu Html Checker requires Java 8 or higher to be installed. Install Java from:
 - https://www.oracle.com/java/technologies/downloads/
 - Or use OpenJDK: https://openjdk.org/
+
+You can verify your Java installation by running:
+```bash
+java -version
+```
 
 ### Linting errors are overwhelming
 Start by running auto-fix commands:
