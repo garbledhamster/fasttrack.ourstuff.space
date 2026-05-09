@@ -3390,7 +3390,7 @@ function normalizeOpenAIReasoningEffort(value) {
 }
 
 function isLikelyOpenAIChatModel(modelId) {
-	return /^(gpt|o\d|chatgpt)/i.test(modelId);
+	return /^(gpt-|o\d+-|o\d$|chatgpt-)/i.test(modelId);
 }
 
 function renderOpenAIModelOptions() {
@@ -3471,7 +3471,10 @@ async function loadOpenAIModels(forceRefresh = false) {
 		const options = (
 			likelyChatModels.length ? likelyChatModels : modelIds
 		).sort((left, right) =>
-			left.localeCompare(right, "en", { sensitivity: "base" }),
+			left.localeCompare(right, "en", {
+				sensitivity: "base",
+				numeric: true,
+			}),
 		);
 		openAIModelOptions = Array.from(new Set(options));
 		if (!openAIModelOptions.length) openAIModelOptions = [DEFAULT_OPENAI_MODEL];
