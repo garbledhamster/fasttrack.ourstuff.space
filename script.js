@@ -4584,7 +4584,9 @@ function buildNoteCard(note) {
 
     const nutritionRow = document.createElement("div");
     nutritionRow.className = "note-nutrition-row";
-    buildNoteNutritionChips(note.calorieEntry).forEach((chip) => nutritionRow.appendChild(chip));
+    buildNoteNutritionChips(note.calorieEntry).forEach((chip) => {
+      nutritionRow.appendChild(chip);
+    });
     if (nutritionRow.childElementCount > 0) detailWrap.appendChild(nutritionRow);
 
     entry.appendChild(calorieBox);
