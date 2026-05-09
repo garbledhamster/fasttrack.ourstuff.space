@@ -274,7 +274,6 @@ const OPENAI_LATEST_MODEL_PREFIXES = Object.freeze([
 	"o4-mini",
 	"o3",
 ]);
-const OPENAI_REASONING_MODEL_PREFIXES = Object.freeze(["o1", "o3"]);
 
 const defaultState = {
 	settings: {
@@ -3428,9 +3427,7 @@ function supportsReasoningEffort(modelId) {
 	const normalized = String(modelId || "")
 		.trim()
 		.toLowerCase();
-	return OPENAI_REASONING_MODEL_PREFIXES.some(
-		(prefix) => normalized === prefix || normalized.startsWith(`${prefix}-`),
-	);
+	return /^o[13](-|$)/.test(normalized);
 }
 
 function compareOpenAIModelOptions(left, right) {
@@ -3650,7 +3647,6 @@ async function estimateCaloriesWithAI(noteText) {
 										carbs: { type: "number" },
 										fat: { type: "number" },
 									},
-									required: ["protein", "carbs", "fat"],
 								},
 								micros: {
 									type: "object",
@@ -3662,14 +3658,6 @@ async function estimateCaloriesWithAI(noteText) {
 										magnesium: { type: "number" },
 										zinc: { type: "number" },
 									},
-									required: [
-										"sodium",
-										"potassium",
-										"calcium",
-										"iron",
-										"magnesium",
-										"zinc",
-									],
 								},
 								vitamins: {
 									type: "object",
@@ -3680,16 +3668,8 @@ async function estimateCaloriesWithAI(noteText) {
 										vitaminB6: { type: "number" },
 										vitaminB12: { type: "number" },
 									},
-									required: [
-										"vitaminA",
-										"vitaminC",
-										"vitaminD",
-										"vitaminB6",
-										"vitaminB12",
-									],
 								},
 							},
-							required: ["calories", "macros", "micros", "vitamins"],
 						},
 					},
 				},
