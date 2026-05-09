@@ -3403,9 +3403,7 @@ function normalizeOpenAIReasoningEffort(value) {
 
 function normalizeOpenAITool(value) {
 	if (!value) return "none";
-	const next = String(value || "")
-		.trim()
-		.toLowerCase();
+	const next = String(value).trim().toLowerCase();
 	return OPENAI_TOOL_OPTIONS.has(next) ? next : "none";
 }
 
