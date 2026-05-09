@@ -95,7 +95,7 @@
           <span id="fast-label-value" class="header-nav-value text-sm md:text-xs font-semibold w-full text-center">00:00:00</span>
         </button>
         <button id="calorie-btn" type="button" class="header-nav-btn text-sm md:text-xs px-3 py-2 md:py-1.5 rounded-full border button-outline text-default flex flex-col items-center text-center leading-tight">
-          <span id="calorie-label-mode" class="text-[10px] md:text-[9px] uppercase tracking-[0.2em] text-subtle w-full text-center">Calories</span>
+          <span id="calorie-label-mode" class="text-[10px] md:text-[9px] uppercase tracking-[0.2em] text-subtle w-full text-center">Nutrition</span>
           <span id="calorie-label-value" class="header-nav-value text-sm md:text-xs font-semibold w-full text-center">Set target</span>
         </button>
         <button id="alerts-btn" type="button" class="header-nav-btn text-sm md:text-xs px-3 py-2 md:py-1.5 rounded-full border button-outline text-default flex flex-col items-center text-center leading-tight">
@@ -201,7 +201,7 @@
 
       <section id="tab-calories" class="tracker-tab h-full flex-col gap-4 hidden">
         <div class="space-y-3">
-          <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Calories</h2>
+          <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Calories &amp; Nutrition</h2>
           <div class="tracker-ring-wrap flex justify-center mt-4">
             <div class="w-full max-w-md">
               <div class="ring-shell relative mx-auto">
@@ -254,6 +254,32 @@
               </button>
             </div>
             <p id="calorie-summary" class="text-sm md:text-xs text-muted text-center">Set a target to track remaining calories.</p>
+            <div class="w-full rounded-2xl border border-default surface-soft px-4 py-3">
+              <div class="text-xs uppercase tracking-[0.2em] text-subtle text-center mb-2">Daily macro &amp; micro tracker</div>
+              <div class="nutrition-grid">
+                <div class="nutrition-stat-card">
+                  <div id="nutrition-protein-value" class="nutrition-stat-value">0 g</div>
+                  <div class="nutrition-stat-label">Protein</div>
+                </div>
+                <div class="nutrition-stat-card">
+                  <div id="nutrition-carbs-value" class="nutrition-stat-value">0 g</div>
+                  <div class="nutrition-stat-label">Carbs</div>
+                </div>
+                <div class="nutrition-stat-card">
+                  <div id="nutrition-fat-value" class="nutrition-stat-value">0 g</div>
+                  <div class="nutrition-stat-label">Fat</div>
+                </div>
+                <div class="nutrition-stat-card">
+                  <div id="nutrition-sodium-value" class="nutrition-stat-value">0 mg</div>
+                  <div class="nutrition-stat-label">Sodium</div>
+                </div>
+                <div class="nutrition-stat-card">
+                  <div id="nutrition-potassium-value" class="nutrition-stat-value">0 mg</div>
+                  <div class="nutrition-stat-label">Potassium</div>
+                </div>
+              </div>
+              <p id="nutrition-summary" class="text-xs md:text-[11px] text-muted text-center mt-3">Log a meal note to start tracking macros and micros.</p>
+            </div>
           </div>
         </div>
 
@@ -311,7 +337,7 @@
         </div>
 
         <div class="mt-4 space-y-3">
-          <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Calorie tracker</h2>
+          <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Calorie &amp; nutrition tracker</h2>
           <div>
             <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-unit-system">Measurement system</label>
             <select id="calorie-unit-system" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
@@ -409,12 +435,12 @@
           </span>
         </button>
 
-        <button type="button" data-tab="calories" data-label="Calories" class="nav-btn flex-1 flex items-center justify-center text-subtle">
+        <button type="button" data-tab="calories" data-label="Nutrition" class="nav-btn flex-1 flex items-center justify-center text-subtle">
           <span class="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2">
             <svg class="w-7 h-7 md:w-5 md:h-5" viewBox="0 0 2048 2048" fill="currentColor">
               <path d="M1280 64q0 179 66 330t190 278t190 278t66 330q0 106-27 204t-78 183t-120 156t-155 120t-184 77t-204 28q-106 0-204-27t-183-78t-156-120t-120-155t-77-184t-28-204q0-84 18-165t52-155t84-141t113-121q7 38 19 78t28 80t38 76t46 67q20 25 52 25q27 0 45-19t19-46q0-11-3-20t-10-18q-28-41-49-81t-37-82t-23-87t-8-95q0-119 45-224t124-183T992 46t224-46h64v64zm-256 1856q133 0 249-50t204-137t137-203t50-250q0-151-56-281t-162-236q-130-131-204-289t-88-342q-83 11-153 50t-123 99t-81 135t-29 160q0 78 23 141t68 126q19 26 29 54t11 62q0 40-15 75t-42 61t-61 42t-75 15q-46 0-81-17t-62-46t-48-65t-40-72q-46 73-68 157t-23 171q0 133 50 249t137 204t203 137t250 50z"/>
             </svg>
-            <span class="hidden md:inline text-xs">Calories</span>
+            <span class="hidden md:inline text-xs">Nutrition</span>
           </span>
         </button>
 
@@ -623,6 +649,21 @@
             <path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2m0 -12a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2m-7 12a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6a6 6 0 0 1 6 6" />
           </svg>
         </button>
+      </div>
+      <div class="mt-3">
+        <label class="block text-sm md:text-xs text-muted mb-2">Macros (g)</label>
+        <div class="nutrition-input-grid">
+          <input id="note-editor-protein" type="number" min="0" step="0.1" aria-label="Protein grams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Protein">
+          <input id="note-editor-carbs" type="number" min="0" step="0.1" aria-label="Carbohydrates grams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Carbs">
+          <input id="note-editor-fat" type="number" min="0" step="0.1" aria-label="Fat grams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Fat">
+        </div>
+      </div>
+      <div class="mt-3">
+        <label class="block text-sm md:text-xs text-muted mb-2">Micros (mg)</label>
+        <div class="nutrition-input-grid">
+          <input id="note-editor-sodium" type="number" min="0" step="1" aria-label="Sodium milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Sodium">
+          <input id="note-editor-potassium" type="number" min="0" step="1" aria-label="Potassium milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Potassium">
+        </div>
       </div>
       <div class="flex gap-2 mt-3">
         <button id="note-editor-delete" type="button" class="flex-1 py-3 md:py-2.5 rounded-xl button-danger border text-sm md:text-xs font-medium hidden">Delete</button>
