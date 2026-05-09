@@ -3390,7 +3390,11 @@ function normalizeOpenAIReasoningEffort(value) {
 }
 
 function isLikelyOpenAIChatModel(modelId) {
-	return /^(gpt-|o\d+-|o\d+$|chatgpt-)/i.test(modelId);
+	return /^(gpt-|o\d+(-|$)|chatgpt-)/i.test(modelId);
+}
+
+function supportsReasoningEffort(modelId) {
+	return /^o\d+(-|$)/i.test(modelId);
 }
 
 function renderOpenAIModelOptions() {
@@ -3531,7 +3535,7 @@ async function estimateCaloriesWithAI(noteText) {
 			temperature: 0.3,
 			max_tokens: 320,
 		};
-		if (reasoningEffort !== "none") {
+		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
 			requestBody.reasoning_effort = reasoningEffort;
 		}
 		const response = await fetch("https://api.openai.com/v1/chat/completions", {
