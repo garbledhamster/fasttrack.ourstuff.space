@@ -3000,6 +3000,53 @@ function usePendingFastType() {
   showToast("Fast type applied");
 }
 
+function parseEstimatedNutritionValue(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
+function normalizeAIEstimatedNutrition(payload) {
+  const calories = parseEstimatedNutritionValue(payload?.calories);
+  const macros = {
+    protein: parseEstimatedNutritionValue(payload?.macros?.protein),
+    carbs: parseEstimatedNutritionValue(payload?.macros?.carbs),
+    fat: parseEstimatedNutritionValue(payload?.macros?.fat),
+  };
+  const micros = {
+    sodium: parseEstimatedNutritionValue(payload?.micros?.sodium),
+    potassium: parseEstimatedNutritionValue(payload?.micros?.potassium),
+    calcium: parseEstimatedNutritionValue(payload?.micros?.calcium),
+    iron: parseEstimatedNutritionValue(payload?.micros?.iron),
+  };
+  const vitamins = {
+    vitaminC: parseEstimatedNutritionValue(payload?.vitamins?.vitaminC),
+    vitaminD: parseEstimatedNutritionValue(payload?.vitamins?.vitaminD),
+  };
+  const hasNutrition = hasAnyNutrientValue(macros, micros, vitamins);
+  if (calories === null && !hasNutrition) return null;
+  return { calories, macros, micros, vitamins };
+}
+
+function parseAIJsonPayload(text) {
+  const trimmed = text?.trim();
+  if (!trimmed) return null;
+  const withoutFence = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+  try {
+    return JSON.parse(withoutFence);
+  } catch {}
+  const objectMatch = withoutFence.match(/\{[\s\S]*\}/);
+  if (!objectMatch) return null;
+  try {
+    return JSON.parse(objectMatch[0]);
+  } catch {
+    return null;
+  }
+}
+
 async function estimateCaloriesWithAI(noteText) {
   const apiKey = state.settings.openaiApiKey?.trim();
 
@@ -3008,7 +3055,7 @@ async function estimateCaloriesWithAI(noteText) {
     return null;
   }
 
-  if (!noteText || !noteText.trim()) {
+  if (!noteText?.trim()) {
     showToast("Please enter food information in the note first");
     return null;
   }
@@ -3025,15 +3072,16 @@ async function estimateCaloriesWithAI(noteText) {
         messages: [
           {
             role: "system",
-            content: "You are a precise nutritional expert. When given a description of food, you must respond with ONLY a number representing the total estimated calories. Do not include any other text, explanations, units, or formatting - just the number. Be as accurate as possible based on typical serving sizes if not specified. If multiple items are listed, provide the sum total."
+            content:
+              "You are a precise nutritional expert. Return ONLY valid JSON with this exact shape: {\"calories\": number|null, \"macros\": {\"protein\": number|null, \"carbs\": number|null, \"fat\": number|null}, \"micros\": {\"sodium\": number|null, \"potassium\": number|null, \"calcium\": number|null, \"iron\": number|null}, \"vitamins\": {\"vitaminC\": number|null, \"vitaminD\": number|null}}. Use milligrams for sodium/potassium/calcium/iron/vitaminC and micrograms for vitaminD. Use numbers only, no units, no extra keys, no markdown, no explanation. If unknown, use null.",
           },
           {
             role: "user",
-            content: noteText
-          }
+            content: noteText,
+          },
         ],
         temperature: 0.3,
-        max_tokens: 50,
+        max_tokens: 220,
       }),
     });
 
@@ -3045,24 +3093,24 @@ async function estimateCaloriesWithAI(noteText) {
     }
 
     const data = await response.json();
-    const calorieText = data.choices[0]?.message?.content?.trim();
+    const aiText = data.choices[0]?.message?.content?.trim();
 
-    if (!calorieText) {
+    if (!aiText) {
       showToast("No response from AI");
       return null;
     }
 
-    // Extract just the number from the response
-    const calorieMatch = calorieText.match(/\d+/);
-    if (!calorieMatch) {
-      showToast("Could not parse calorie estimate from AI response");
+    const parsedPayload = parseAIJsonPayload(aiText);
+    const estimatedNutrition = normalizeAIEstimatedNutrition(parsedPayload);
+    if (!estimatedNutrition) {
+      showToast("Could not parse nutrition estimate from AI response");
       return null;
     }
 
-    return parseInt(calorieMatch[0], 10);
+    return estimatedNutrition;
   } catch (error) {
     console.error("Error calling OpenAI API:", error);
-    showToast("Failed to estimate calories. Check your internet connection.");
+    showToast("Failed to estimate nutrition. Check your internet connection.");
     return null;
   }
 }
@@ -3274,15 +3322,21 @@ function initButtons() {
     button.disabled = true;
     button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>';
 
-    const estimatedCalories = await estimateCaloriesWithAI(noteContent);
+    const estimatedNutrition = await estimateCaloriesWithAI(noteContent);
 
     // Re-enable button and restore original icon
     button.disabled = false;
     button.innerHTML = originalHTML;
 
-    if (estimatedCalories !== null) {
-      $("note-editor-calories").value = estimatedCalories;
-      showToast(`Estimated ${estimatedCalories} calories`);
+    if (estimatedNutrition !== null) {
+      $("note-editor-calories").value = Number.isFinite(estimatedNutrition.calories)
+        ? String(estimatedNutrition.calories)
+        : "";
+      setNoteEditorNutritionFields(estimatedNutrition);
+      const caloriesLabel = Number.isFinite(estimatedNutrition.calories)
+        ? ` ${estimatedNutrition.calories} calories`
+        : " nutrition";
+      showToast(`Estimated${caloriesLabel} with AI`);
     }
   });
   attachNoteEditorSwipeHandlers();
