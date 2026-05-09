@@ -3049,6 +3049,14 @@ function parseAIJsonPayload(text) {
 
 async function estimateCaloriesWithAI(noteText) {
   const apiKey = state.settings.openaiApiKey?.trim();
+  const nutritionPrompt = [
+    "You are a precise nutritional expert.",
+    "Return ONLY valid JSON with this exact shape:",
+    "{\"calories\": number|null, \"macros\": {\"protein\": number|null, \"carbs\": number|null, \"fat\": number|null}, \"micros\": {\"sodium\": number|null, \"potassium\": number|null, \"calcium\": number|null, \"iron\": number|null}, \"vitamins\": {\"vitaminC\": number|null, \"vitaminD\": number|null}}.",
+    "Use milligrams for sodium/potassium/calcium/iron/vitaminC and micrograms for vitaminD.",
+    "Use numbers only, no units, no extra keys, no markdown, no explanation.",
+    "If unknown, use null.",
+  ].join(" ");
 
   if (!apiKey) {
     showToast("Please add your OpenAI API key in settings first");
@@ -3072,8 +3080,7 @@ async function estimateCaloriesWithAI(noteText) {
         messages: [
           {
             role: "system",
-            content:
-              "You are a precise nutritional expert. Return ONLY valid JSON with this exact shape: {\"calories\": number|null, \"macros\": {\"protein\": number|null, \"carbs\": number|null, \"fat\": number|null}, \"micros\": {\"sodium\": number|null, \"potassium\": number|null, \"calcium\": number|null, \"iron\": number|null}, \"vitamins\": {\"vitaminC\": number|null, \"vitaminD\": number|null}}. Use milligrams for sodium/potassium/calcium/iron/vitaminC and micrograms for vitaminD. Use numbers only, no units, no extra keys, no markdown, no explanation. If unknown, use null.",
+            content: nutritionPrompt,
           },
           {
             role: "user",
