@@ -266,6 +266,8 @@ const NUTRIENT_DECIMAL_THRESHOLD = 100;
 const NUTRIENT_NUMBER_FORMAT = new Intl.NumberFormat();
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
+const OPENAI_CHAT_MODEL_PATTERN = /^(gpt-|o\d+(-|$)|chatgpt-)/i;
+const OPENAI_REASONING_MODEL_PATTERN = /^o\d+(-|$)/i;
 
 const defaultState = {
 	settings: {
@@ -344,6 +346,7 @@ let noteEditorCloseTimeout = null;
 let editingNoteId = null;
 let openAIModelOptions = [];
 let openAIModelsLoadedForKey = "";
+let reasoningSupportToastShown = false;
 let editingNoteDateKey = null;
 let editingNoteContext = null;
 let editingNoteCreatedAt = null;
@@ -3390,11 +3393,32 @@ function normalizeOpenAIReasoningEffort(value) {
 }
 
 function isLikelyOpenAIChatModel(modelId) {
-	return /^(gpt-|o\d+(-|$)|chatgpt-)/i.test(modelId);
+	return OPENAI_CHAT_MODEL_PATTERN.test(modelId);
 }
 
 function supportsReasoningEffort(modelId) {
-	return /^o\d+(-|$)/i.test(modelId);
+	return OPENAI_REASONING_MODEL_PATTERN.test(modelId);
+}
+
+function syncReasoningSettingForModel() {
+	const reasoningSelect = $("openai-reasoning-effort");
+	const selectedModel = normalizeOpenAIModel(state.settings.openaiModel);
+	const supportsReasoning = supportsReasoningEffort(selectedModel);
+	const currentReasoning = normalizeOpenAIReasoningEffort(
+		state.settings.openaiReasoningEffort,
+	);
+	if (reasoningSelect) {
+		reasoningSelect.disabled = !supportsReasoning;
+		reasoningSelect.title = supportsReasoning
+			? ""
+			: "Reasoning mode is available only for compatible o-series models.";
+	}
+	if (!supportsReasoning && currentReasoning !== "none") {
+		state.settings.openaiReasoningEffort = "none";
+		if (reasoningSelect) reasoningSelect.value = "none";
+		return true;
+	}
+	return false;
 }
 
 function renderOpenAIModelOptions() {
@@ -3461,7 +3485,10 @@ async function loadOpenAIModels(forceRefresh = false) {
 		});
 		if (!response.ok) {
 			const error = await response.json();
-			throw new Error(error?.error?.message || "Could not load models");
+			throw new Error(
+				error?.error?.message ||
+					`Could not load models (HTTP ${response.status})`,
+			);
 		}
 		const data = await response.json();
 		const modelIds = Array.isArray(data?.data)
@@ -3537,6 +3564,10 @@ async function estimateCaloriesWithAI(noteText) {
 		};
 		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
 			requestBody.reasoning_effort = reasoningEffort;
+			reasoningSupportToastShown = false;
+		} else if (reasoningEffort !== "none" && !reasoningSupportToastShown) {
+			showToast("Reasoning mode is not supported by the selected model");
+			reasoningSupportToastShown = true;
 		}
 		const response = await fetch("https://api.openai.com/v1/chat/completions", {
 			method: "POST",
@@ -3670,6 +3701,10 @@ function initButtons() {
 
 	$("openai-model-select").addEventListener("change", (event) => {
 		state.settings.openaiModel = normalizeOpenAIModel(event.target.value);
+		if (syncReasoningSettingForModel()) {
+			showToast("Reasoning mode was turned off for this model");
+		}
+		reasoningSupportToastShown = false;
 		void saveState();
 	});
 
@@ -3677,6 +3712,7 @@ function initButtons() {
 		state.settings.openaiReasoningEffort = normalizeOpenAIReasoningEffort(
 			event.target.value,
 		);
+		reasoningSupportToastShown = false;
 		void saveState();
 	});
 
@@ -4016,6 +4052,7 @@ function renderSettings() {
 			state.settings.openaiReasoningEffort,
 		);
 	}
+	if (syncReasoningSettingForModel()) void saveState();
 	$("theme-preset-select").value = presetId;
 	$("theme-custom-controls").classList.toggle("hidden", presetId !== "custom");
 	$("theme-primary-color").value = customTheme.primaryColor;
