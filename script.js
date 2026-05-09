@@ -3470,7 +3470,9 @@ async function loadOpenAIModels(forceRefresh = false) {
 		const likelyChatModels = modelIds.filter(isLikelyOpenAIChatModel);
 		const options = (
 			likelyChatModels.length ? likelyChatModels : modelIds
-		).sort((left, right) => left.localeCompare(right));
+		).sort((left, right) =>
+			left.localeCompare(right, "en", { sensitivity: "base" }),
+		);
 		openAIModelOptions = Array.from(new Set(options));
 		if (!openAIModelOptions.length) openAIModelOptions = [DEFAULT_OPENAI_MODEL];
 		openAIModelsLoadedForKey = apiKey;
