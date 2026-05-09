@@ -644,7 +644,18 @@ function normalizeNutrientGroup(group, fields) {
   }, {});
 }
 
-function hasAnyNutrientValue(macros = {}, micros = {}, vitamins = {}, { positiveOnly = false } = {}) {
+function hasAnyNutrientValue(macros = {}, micros = {}, vitaminsOrOptions = {}, maybeOptions = {}) {
+  const legacyOptions =
+    vitaminsOrOptions && typeof vitaminsOrOptions === "object"
+      ? vitaminsOrOptions
+      : null;
+  const usingLegacyOptionsArg =
+    legacyOptions &&
+    Object.hasOwn(legacyOptions, "positiveOnly") &&
+    (!maybeOptions || Object.keys(maybeOptions).length === 0);
+  const vitamins = usingLegacyOptionsArg ? {} : vitaminsOrOptions;
+  const options = usingLegacyOptionsArg ? legacyOptions : maybeOptions;
+  const { positiveOnly = false } = options || {};
   return [...Object.values(macros), ...Object.values(micros), ...Object.values(vitamins)].some((value) =>
     Number.isFinite(value) && (!positiveOnly || value > 0),
   );
