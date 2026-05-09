@@ -3386,10 +3386,17 @@ function normalizeOpenAIModel(value) {
 }
 
 function normalizeOpenAIReasoningEffort(value) {
+	if (!value) return "none";
 	const next = String(value || "")
 		.trim()
 		.toLowerCase();
 	return OPENAI_REASONING_EFFORTS.has(next) ? next : "none";
+}
+
+function sanitizeBearerToken(value) {
+	const token = String(value || "").trim();
+	if (!token || /[\r\n]/.test(token)) return "";
+	return token;
 }
 
 function isLikelyOpenAIChatModel(modelId) {
@@ -3398,6 +3405,16 @@ function isLikelyOpenAIChatModel(modelId) {
 
 function supportsReasoningEffort(modelId) {
 	return OPENAI_REASONING_MODEL_PATTERN.test(modelId);
+}
+
+function resetReasoningSupportToast() {
+	reasoningSupportToastShown = false;
+}
+
+function showReasoningUnsupportedToastOnce() {
+	if (reasoningSupportToastShown) return;
+	showToast("Reasoning mode is not supported by the selected model");
+	reasoningSupportToastShown = true;
 }
 
 function syncReasoningSettingForModel() {
@@ -3461,7 +3478,7 @@ function renderOpenAIModelOptions() {
 async function loadOpenAIModels(forceRefresh = false) {
 	const modelSelect = $("openai-model-select");
 	if (!modelSelect) return;
-	const apiKey = state.settings.openaiApiKey?.trim();
+	const apiKey = sanitizeBearerToken(state.settings.openaiApiKey);
 	if (!apiKey) {
 		openAIModelOptions = [];
 		openAIModelsLoadedForKey = "";
@@ -3512,7 +3529,7 @@ async function loadOpenAIModels(forceRefresh = false) {
 		openAIModelsLoadedForKey = apiKey;
 	} catch (error) {
 		console.error("Failed to load OpenAI models:", error);
-		showToast("Could not load OpenAI models, using default");
+		showToast(`Could not load OpenAI models, using ${DEFAULT_OPENAI_MODEL}`);
 		openAIModelOptions = [DEFAULT_OPENAI_MODEL];
 		openAIModelsLoadedForKey = "";
 	} finally {
@@ -3521,7 +3538,7 @@ async function loadOpenAIModels(forceRefresh = false) {
 }
 
 async function estimateCaloriesWithAI(noteText) {
-	const apiKey = state.settings.openaiApiKey?.trim();
+	const apiKey = sanitizeBearerToken(state.settings.openaiApiKey);
 	const model = normalizeOpenAIModel(state.settings.openaiModel);
 	const reasoningEffort = normalizeOpenAIReasoningEffort(
 		state.settings.openaiReasoningEffort,
@@ -3564,10 +3581,9 @@ async function estimateCaloriesWithAI(noteText) {
 		};
 		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
 			requestBody.reasoning_effort = reasoningEffort;
-			reasoningSupportToastShown = false;
-		} else if (reasoningEffort !== "none" && !reasoningSupportToastShown) {
-			showToast("Reasoning mode is not supported by the selected model");
-			reasoningSupportToastShown = true;
+			resetReasoningSupportToast();
+		} else if (reasoningEffort !== "none") {
+			showReasoningUnsupportedToastOnce();
 		}
 		const response = await fetch("https://api.openai.com/v1/chat/completions", {
 			method: "POST",
@@ -3704,7 +3720,7 @@ function initButtons() {
 		if (syncReasoningSettingForModel()) {
 			showToast("Reasoning mode was turned off for this model");
 		}
-		reasoningSupportToastShown = false;
+		resetReasoningSupportToast();
 		void saveState();
 	});
 
@@ -3712,7 +3728,7 @@ function initButtons() {
 		state.settings.openaiReasoningEffort = normalizeOpenAIReasoningEffort(
 			event.target.value,
 		);
-		reasoningSupportToastShown = false;
+		resetReasoningSupportToast();
 		void saveState();
 	});
 
