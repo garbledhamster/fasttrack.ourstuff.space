@@ -3090,7 +3090,7 @@ async function estimateCaloriesWithAI(noteText) {
     "You are a precise nutritional expert.",
     "Return ONLY valid JSON with this exact shape:",
     "{\"calories\": number|null, \"macros\": {\"protein\": number|null, \"carbs\": number|null, \"fat\": number|null}, \"micros\": {\"sodium\": number|null, \"potassium\": number|null, \"calcium\": number|null, \"iron\": number|null, \"magnesium\": number|null, \"zinc\": number|null}, \"vitamins\": {\"vitaminA\": number|null, \"vitaminC\": number|null, \"vitaminD\": number|null, \"vitaminB6\": number|null, \"vitaminB12\": number|null}}.",
-    "Use the product-style nutrition facts if the note includes them.",
+    "If the note includes structured nutrition-label details such as serving information or listed nutrient values, extract those exact nutrition-facts values when possible.",
     "Use milligrams for sodium/potassium/calcium/iron/magnesium/zinc/vitaminC/vitaminB6 and micrograms for vitaminA/vitaminD/vitaminB12.",
     "Use numbers only, no units, no extra keys, no markdown, no explanation.",
     "If unknown, use null.",
