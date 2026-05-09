@@ -59,6 +59,15 @@ const _NOTES_SCHEMA = Object.freeze({
   calorieEntry: {
     calories: null,
     foodNote: "",
+    macros: {
+      protein: null,
+      carbs: null,
+      fat: null,
+    },
+    micros: {
+      sodium: null,
+      potassium: null,
+    },
     goalSnapshot: {
       dailyTarget: null,
       goal: "",
@@ -177,6 +186,7 @@ let editingNoteCreatedAt = null;
 let editingNoteOpenedAt = null;
 let editingNoteInitialText = "";
 let editingNoteInitialCalories = "";
+let editingNoteInitialNutrition = "";
 let editingHistoryId = null;
 
 let navHoldTimer = null;
@@ -544,13 +554,26 @@ function normalizeCalorieEntry(entry) {
   const calories = Number(entry.calories);
   const normalizedCalories = Number.isFinite(calories) && calories >= 0 ? calories : null;
   const foodNote = typeof entry.foodNote === "string" ? entry.foodNote : "";
+  const macros = normalizeNutrientGroup(entry.macros, ["protein", "carbs", "fat"]);
+  const micros = normalizeNutrientGroup(entry.micros, ["sodium", "potassium"]);
   const goalSnapshot = entry.goalSnapshot ? normalizeGoalContext(entry.goalSnapshot) : null;
-  if (normalizedCalories === null && !foodNote) return null;
+  const hasNutrientValue = Object.values(macros).some(Number.isFinite) || Object.values(micros).some(Number.isFinite);
+  if (normalizedCalories === null && !foodNote && !hasNutrientValue) return null;
   return {
     calories: normalizedCalories,
     foodNote,
+    macros,
+    micros,
     goalSnapshot,
   };
+}
+
+function normalizeNutrientGroup(group, fields) {
+  return fields.reduce((acc, field) => {
+    const value = Number(group?.[field]);
+    acc[field] = Number.isFinite(value) && value >= 0 ? value : null;
+    return acc;
+  }, {});
 }
 
 function normalizeFastContext(fastContext, createdAt) {
@@ -785,8 +808,10 @@ function openNoteEditor(note = null) {
   $("note-editor-calories").value = Number.isFinite(note?.calorieEntry?.calories)
     ? note.calorieEntry.calories
     : "";
+  setNoteEditorNutritionFields(note?.calorieEntry);
   editingNoteInitialText = $("note-editor-content").value.trim();
   editingNoteInitialCalories = $("note-editor-calories").value.trim();
+  editingNoteInitialNutrition = serializeNoteEditorNutritionFields();
   updateNoteEditorMeta();
   $("note-editor-delete").classList.toggle("hidden", !editingNoteId);
   modal.classList.remove("hidden");
@@ -800,11 +825,61 @@ function parseCalorieInput(value) {
   return parsed;
 }
 
+function setNoteEditorNutritionFields(entry) {
+  const nutrientMap = {
+    "note-editor-protein": entry?.macros?.protein,
+    "note-editor-carbs": entry?.macros?.carbs,
+    "note-editor-fat": entry?.macros?.fat,
+    "note-editor-sodium": entry?.micros?.sodium,
+    "note-editor-potassium": entry?.micros?.potassium,
+  };
+  Object.entries(nutrientMap).forEach(([id, value]) => {
+    const input = $(id);
+    if (!input) return;
+    input.value = Number.isFinite(value) ? String(value) : "";
+  });
+}
+
+function serializeNoteEditorNutritionFields() {
+  const fields = [
+    "note-editor-protein",
+    "note-editor-carbs",
+    "note-editor-fat",
+    "note-editor-sodium",
+    "note-editor-potassium",
+  ];
+  return fields.map((id) => `${id}:${$(id)?.value?.trim() || ""}`).join("|");
+}
+
+function hasNoteEditorNutritionContent() {
+  return [
+    "note-editor-protein",
+    "note-editor-carbs",
+    "note-editor-fat",
+    "note-editor-sodium",
+    "note-editor-potassium",
+  ].some((id) => Boolean($(id)?.value?.trim()));
+}
+
 function buildCalorieEntryFromEditor() {
   const calories = parseCalorieInput($("note-editor-calories").value.trim());
-  if (calories === null) return null;
+  const macros = {
+    protein: parseCalorieInput($("note-editor-protein")?.value.trim() || ""),
+    carbs: parseCalorieInput($("note-editor-carbs")?.value.trim() || ""),
+    fat: parseCalorieInput($("note-editor-fat")?.value.trim() || ""),
+  };
+  const micros = {
+    sodium: parseCalorieInput($("note-editor-sodium")?.value.trim() || ""),
+    potassium: parseCalorieInput($("note-editor-potassium")?.value.trim() || ""),
+  };
+  const hasNutrition = [...Object.values(macros), ...Object.values(micros)].some((value) =>
+    Number.isFinite(value),
+  );
+  if (calories === null && !hasNutrition) return null;
   return {
     calories,
+    macros,
+    micros,
     goalSnapshot: buildGoalContext(),
   };
 }
@@ -818,9 +893,12 @@ async function handleNoteEditorSwipeDismiss() {
   if (!modal || modal.classList.contains("hidden")) return;
   const text = $("note-editor-content").value.trim();
   const caloriesValue = $("note-editor-calories").value.trim();
+  const nutritionValue = serializeNoteEditorNutritionFields();
   const hasChanges =
-    text !== editingNoteInitialText || caloriesValue !== editingNoteInitialCalories;
-  const hasContent = Boolean(text) || Boolean(caloriesValue);
+    text !== editingNoteInitialText ||
+    caloriesValue !== editingNoteInitialCalories ||
+    nutritionValue !== editingNoteInitialNutrition;
+  const hasContent = Boolean(text) || Boolean(caloriesValue) || hasNoteEditorNutritionContent();
   if (hasChanges && hasContent) {
     const saved = await persistNoteEditor({ closeOnSave: false });
     if (!saved) return;
@@ -908,6 +986,7 @@ function closeNoteEditor() {
   }, 250);
   $("note-editor-content").value = "";
   $("note-editor-calories").value = "";
+  setNoteEditorNutritionFields(null);
   editingNoteId = null;
   editingNoteDateKey = null;
   editingNoteContext = null;
@@ -915,13 +994,14 @@ function closeNoteEditor() {
   editingNoteOpenedAt = null;
   editingNoteInitialText = "";
   editingNoteInitialCalories = "";
+  editingNoteInitialNutrition = "";
 }
 
 async function persistNoteEditor({ closeOnSave = true } = {}) {
   const text = $("note-editor-content").value.trim();
   const calorieEntry = buildCalorieEntryFromEditor();
   if (!text && !calorieEntry) {
-    showToast("Add a note before saving");
+    showToast("Add a note or nutrition values before saving");
     return false;
   }
   try {
@@ -2250,6 +2330,78 @@ function getNoteCaloriesForDateKey(dateKey = formatDateKey(new Date())) {
   }, 0);
 }
 
+function getNoteNutritionTotalsForDateKey(dateKey = formatDateKey(new Date())) {
+  const totals = {
+    macros: { protein: 0, carbs: 0, fat: 0 },
+    micros: { sodium: 0, potassium: 0 },
+  };
+  if (!Array.isArray(notes) || notes.length === 0) return totals;
+  notes.forEach((note) => {
+    if (!note || note.dateKey !== dateKey) return;
+    const protein = Number(note.calorieEntry?.macros?.protein);
+    const carbs = Number(note.calorieEntry?.macros?.carbs);
+    const fat = Number(note.calorieEntry?.macros?.fat);
+    const sodium = Number(note.calorieEntry?.micros?.sodium);
+    const potassium = Number(note.calorieEntry?.micros?.potassium);
+    if (Number.isFinite(protein)) totals.macros.protein += protein;
+    if (Number.isFinite(carbs)) totals.macros.carbs += carbs;
+    if (Number.isFinite(fat)) totals.macros.fat += fat;
+    if (Number.isFinite(sodium)) totals.micros.sodium += sodium;
+    if (Number.isFinite(potassium)) totals.micros.potassium += potassium;
+  });
+  return totals;
+}
+
+function formatNutrientValue(value, unit) {
+  if (!Number.isFinite(value) || value <= 0) return `0 ${unit}`;
+  const normalized = value < 100 ? Math.round(value * 10) / 10 : Math.round(value);
+  return `${new Intl.NumberFormat().format(normalized)} ${unit}`;
+}
+
+function formatNutritionInlineSummary(dateKey = formatDateKey(new Date())) {
+  const totals = getNoteNutritionTotalsForDateKey(dateKey);
+  const macroBits = [
+    ["P", totals.macros.protein, "g"],
+    ["C", totals.macros.carbs, "g"],
+    ["F", totals.macros.fat, "g"],
+  ]
+    .filter(([, value]) => Number.isFinite(value) && value > 0)
+    .map(([label, value, unit]) => `${label} ${formatNutrientValue(value, unit)}`);
+  const microBits = [
+    ["Na", totals.micros.sodium, "mg"],
+    ["K", totals.micros.potassium, "mg"],
+  ]
+    .filter(([, value]) => Number.isFinite(value) && value > 0)
+    .map(([label, value, unit]) => `${label} ${formatNutrientValue(value, unit)}`);
+  const bits = [...macroBits, ...microBits];
+  return bits.length ? bits.join(" • ") : "";
+}
+
+function renderNutritionTracker() {
+  const dateKey = getCalorieDisplayDateKey();
+  const totals = getNoteNutritionTotalsForDateKey(dateKey);
+  const proteinEl = $("nutrition-protein-value");
+  const carbsEl = $("nutrition-carbs-value");
+  const fatEl = $("nutrition-fat-value");
+  const sodiumEl = $("nutrition-sodium-value");
+  const potassiumEl = $("nutrition-potassium-value");
+  const summaryEl = $("nutrition-summary");
+  if (!proteinEl || !carbsEl || !fatEl || !sodiumEl || !potassiumEl || !summaryEl) return;
+
+  proteinEl.textContent = formatNutrientValue(totals.macros.protein, "g");
+  carbsEl.textContent = formatNutrientValue(totals.macros.carbs, "g");
+  fatEl.textContent = formatNutrientValue(totals.macros.fat, "g");
+  sodiumEl.textContent = formatNutrientValue(totals.micros.sodium, "mg");
+  potassiumEl.textContent = formatNutrientValue(totals.micros.potassium, "mg");
+
+  const hasAnyNutrition = [...Object.values(totals.macros), ...Object.values(totals.micros)].some(
+    (value) => Number.isFinite(value) && value > 0,
+  );
+  summaryEl.textContent = hasAnyNutrition
+    ? "Based on meal notes for the selected day."
+    : "Log a meal note to start tracking macros and micros.";
+}
+
 function getEffectiveCalorieConsumed(dateKey = getCalorieDisplayDateKey()) {
   const todayKey = formatDateKey(new Date());
   const baseConsumed = dateKey === todayKey ? getCalorieConsumed() : 0;
@@ -2278,12 +2430,17 @@ function renderCalorieSummary() {
   const target = getCalorieTarget();
   const dateKey = getCalorieDisplayDateKey();
   const consumed = getEffectiveCalorieConsumed(dateKey);
+  const nutritionSummary = formatNutritionInlineSummary(dateKey);
   if (!target) {
-    summary.textContent = "Set a target to track remaining calories.";
+    summary.textContent = nutritionSummary
+      ? `Set a target to track remaining calories • ${nutritionSummary}`
+      : "Set a target to track remaining calories.";
     return;
   }
   const remaining = Math.max(0, target - consumed);
-  summary.textContent = `${formatCalories(remaining)} calories left today.`;
+  summary.textContent = nutritionSummary
+    ? `${formatCalories(remaining)} calories left today • ${nutritionSummary}`
+    : `${formatCalories(remaining)} calories left today.`;
 }
 
 function renderCalorieRing() {
@@ -2569,6 +2726,7 @@ function renderCalories() {
   renderCalorieSummary();
   renderCalorieRing();
   renderCalorieButton();
+  renderNutritionTracker();
 }
 
 function initCalories() {
@@ -4013,7 +4171,9 @@ function renderDayDetails() {
     Number.isFinite(dayNoteCalories) && dayNoteCalories > 0
       ? `, ${formatCalories(dayNoteCalories)} calories`
       : "";
-  summary.textContent = `${day.entries.length} fast(s), ${day.totalHours.toFixed(1)} total hours${calorieSummary}`;
+  const nutritionSummary = formatNutritionInlineSummary(selectedDayKey);
+  const nutritionTail = nutritionSummary ? `, ${nutritionSummary}` : "";
+  summary.textContent = `${day.entries.length} fast(s), ${day.totalHours.toFixed(1)} total hours${calorieSummary}${nutritionTail}`;
 
   day.entries.forEach((e) => {
     const displayStart = e.displayStartTimestamp ?? e.startTimestamp;
@@ -4099,6 +4259,7 @@ function renderNotes() {
   renderCalorieSummary();
   renderCalorieRing();
   renderCalorieButton();
+  renderNutritionTracker();
 }
 
 function renderHistoryNotes() {
@@ -4124,7 +4285,9 @@ function renderHistoryNotes() {
     Number.isFinite(dayNoteCalories) && dayNoteCalories > 0
       ? `, ${formatCalories(dayNoteCalories)} calories`
       : "";
-  summary.textContent = `${dayNotes.length} note(s)${calorieSummary}`;
+  const nutritionSummary = formatNutritionInlineSummary(selectedDayKey);
+  const nutritionTail = nutritionSummary ? `, ${nutritionSummary}` : "";
+  summary.textContent = `${dayNotes.length} note(s)${calorieSummary}${nutritionTail}`;
   dayNotes.forEach((note) => {
     list.appendChild(buildNoteCard(note));
   });
@@ -4159,6 +4322,24 @@ function renderNotesTab() {
   });
 }
 
+function buildNoteNutritionChips(calorieEntry) {
+  const chipSpecs = [
+    ["Protein", calorieEntry?.macros?.protein, "g"],
+    ["Carbs", calorieEntry?.macros?.carbs, "g"],
+    ["Fat", calorieEntry?.macros?.fat, "g"],
+    ["Sodium", calorieEntry?.micros?.sodium, "mg"],
+    ["Potassium", calorieEntry?.micros?.potassium, "mg"],
+  ];
+  return chipSpecs
+    .filter(([, value]) => Number.isFinite(value) && value >= 0)
+    .map(([label, value, unit]) => {
+      const chip = document.createElement("span");
+      chip.className = "note-nutrition-chip";
+      chip.textContent = `${label} ${formatNutrientValue(value, unit)}`;
+      return chip;
+    });
+}
+
 function buildNoteCard(note) {
   const card = document.createElement("button");
   card.type = "button";
@@ -4185,12 +4366,21 @@ function buildNoteCard(note) {
     calorieBox.appendChild(calorieValue);
     calorieBox.appendChild(calorieUnit);
 
+    const detailWrap = document.createElement("div");
+    detailWrap.className = "flex-1 flex flex-col gap-2";
+
     const calorieText = document.createElement("div");
     calorieText.className = "note-calorie-text";
-    calorieText.textContent = note.text || "Calorie entry";
+    calorieText.textContent = note.text || "Nutrition entry";
+    detailWrap.appendChild(calorieText);
+
+    const nutritionRow = document.createElement("div");
+    nutritionRow.className = "note-nutrition-row";
+    buildNoteNutritionChips(note.calorieEntry).forEach((chip) => nutritionRow.appendChild(chip));
+    if (nutritionRow.childElementCount > 0) detailWrap.appendChild(nutritionRow);
 
     entry.appendChild(calorieBox);
-    entry.appendChild(calorieText);
+    entry.appendChild(detailWrap);
     card.appendChild(entry);
   } else {
     const text = document.createElement("div");
