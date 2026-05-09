@@ -2466,7 +2466,7 @@ function renderNutritionTracker() {
   summaryEl.textContent = hasAnyNutrition
     ? hasAnyGoal
       ? "Based on meal notes for the selected day. Goal progress shown per tracker."
-      : "Based on meal notes for the selected day. Add daily nutrient goals in Goal details."
+      : "Based on meal notes for the selected day. Add daily nutrient goals in the Goal details panel."
     : "Log a meal note to start tracking macros, vitamins, and minerals.";
 }
 
