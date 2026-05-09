@@ -404,6 +404,21 @@
             <input id="openai-api-key" type="password" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="sk-...">
             <p class="text-xs md:text-[11px] text-subtle mt-1">Your API key is encrypted and stored securely. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-brand-500 hover:text-brand-600 underline">Get API Key</a></p>
           </div>
+          <div>
+            <label class="block text-sm md:text-xs text-muted mb-1" for="openai-model-select">OpenAI model</label>
+            <select id="openai-model-select" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm md:text-xs text-muted mb-1" for="openai-reasoning-effort">Reasoning mode</label>
+            <select id="openai-reasoning-effort" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
+              <option value="none">Off</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
         </div>
 
         <div class="mt-4 space-y-3">
