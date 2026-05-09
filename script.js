@@ -70,10 +70,15 @@ const _NOTES_SCHEMA = Object.freeze({
       potassium: null,
       calcium: null,
       iron: null,
+      magnesium: null,
+      zinc: null,
     },
     vitamins: {
+      vitaminA: null,
       vitaminC: null,
       vitaminD: null,
+      vitaminB6: null,
+      vitaminB12: null,
     },
     goalSnapshot: {
       dailyTarget: null,
@@ -119,8 +124,15 @@ const CALORIE_VIEWS = [
 ];
 
 const MACRO_FIELDS = Object.freeze(["protein", "carbs", "fat"]);
-const MICRO_FIELDS = Object.freeze(["sodium", "potassium", "calcium", "iron"]);
-const VITAMIN_FIELDS = Object.freeze(["vitaminC", "vitaminD"]);
+const MICRO_FIELDS = Object.freeze([
+  "sodium",
+  "potassium",
+  "calcium",
+  "iron",
+  "magnesium",
+  "zinc",
+]);
+const VITAMIN_FIELDS = Object.freeze(["vitaminA", "vitaminC", "vitaminD", "vitaminB6", "vitaminB12"]);
 const NUTRIENT_TRACKER_DEFINITIONS = Object.freeze([
   { key: "protein", group: "macros", label: "Protein", unit: "g", shortLabel: "P" },
   { key: "carbs", group: "macros", label: "Carbs", unit: "g", shortLabel: "C" },
@@ -129,8 +141,13 @@ const NUTRIENT_TRACKER_DEFINITIONS = Object.freeze([
   { key: "potassium", group: "micros", label: "Potassium", unit: "mg", shortLabel: "K" },
   { key: "calcium", group: "micros", label: "Calcium", unit: "mg", shortLabel: "Ca" },
   { key: "iron", group: "micros", label: "Iron", unit: "mg", shortLabel: "Fe" },
+  { key: "magnesium", group: "micros", label: "Magnesium", unit: "mg", shortLabel: "Mg" },
+  { key: "zinc", group: "micros", label: "Zinc", unit: "mg", shortLabel: "Zn" },
+  { key: "vitaminA", group: "vitamins", label: "Vitamin A", unit: "mcg", shortLabel: "Vit A" },
   { key: "vitaminC", group: "vitamins", label: "Vitamin C", unit: "mg", shortLabel: "Vit C" },
   { key: "vitaminD", group: "vitamins", label: "Vitamin D", unit: "mcg", shortLabel: "Vit D" },
+  { key: "vitaminB6", group: "vitamins", label: "Vitamin B6", unit: "mg", shortLabel: "B6" },
+  { key: "vitaminB12", group: "vitamins", label: "Vitamin B12", unit: "mcg", shortLabel: "B12" },
 ]);
 const NUTRIENT_GOAL_INPUT_FIELDS = Object.freeze([
   { id: "calorie-goal-protein", group: "macros", key: "protein" },
@@ -140,8 +157,13 @@ const NUTRIENT_GOAL_INPUT_FIELDS = Object.freeze([
   { id: "calorie-goal-potassium", group: "micros", key: "potassium" },
   { id: "calorie-goal-calcium", group: "micros", key: "calcium" },
   { id: "calorie-goal-iron", group: "micros", key: "iron" },
+  { id: "calorie-goal-magnesium", group: "micros", key: "magnesium" },
+  { id: "calorie-goal-zinc", group: "micros", key: "zinc" },
+  { id: "calorie-goal-vitamin-a", group: "vitamins", key: "vitaminA" },
   { id: "calorie-goal-vitamin-c", group: "vitamins", key: "vitaminC" },
   { id: "calorie-goal-vitamin-d", group: "vitamins", key: "vitaminD" },
+  { id: "calorie-goal-vitamin-b6", group: "vitamins", key: "vitaminB6" },
+  { id: "calorie-goal-vitamin-b12", group: "vitamins", key: "vitaminB12" },
 ]);
 const NOTE_EDITOR_NUTRIENT_FIELDS = Object.freeze([
   { id: "note-editor-protein", group: "macros", key: "protein" },
@@ -151,8 +173,13 @@ const NOTE_EDITOR_NUTRIENT_FIELDS = Object.freeze([
   { id: "note-editor-potassium", group: "micros", key: "potassium" },
   { id: "note-editor-calcium", group: "micros", key: "calcium" },
   { id: "note-editor-iron", group: "micros", key: "iron" },
+  { id: "note-editor-magnesium", group: "micros", key: "magnesium" },
+  { id: "note-editor-zinc", group: "micros", key: "zinc" },
+  { id: "note-editor-vitamin-a", group: "vitamins", key: "vitaminA" },
   { id: "note-editor-vitamin-c", group: "vitamins", key: "vitaminC" },
   { id: "note-editor-vitamin-d", group: "vitamins", key: "vitaminD" },
+  { id: "note-editor-vitamin-b6", group: "vitamins", key: "vitaminB6" },
+  { id: "note-editor-vitamin-b12", group: "vitamins", key: "vitaminB12" },
 ]);
 
 function buildDefaultNutrientGoals() {
@@ -943,10 +970,15 @@ function buildCalorieEntryFromEditor() {
     potassium: parseCalorieInput($("note-editor-potassium")?.value.trim() || ""),
     calcium: parseCalorieInput($("note-editor-calcium")?.value.trim() || ""),
     iron: parseCalorieInput($("note-editor-iron")?.value.trim() || ""),
+    magnesium: parseCalorieInput($("note-editor-magnesium")?.value.trim() || ""),
+    zinc: parseCalorieInput($("note-editor-zinc")?.value.trim() || ""),
   };
   const vitamins = {
+    vitaminA: parseCalorieInput($("note-editor-vitamin-a")?.value.trim() || ""),
     vitaminC: parseCalorieInput($("note-editor-vitamin-c")?.value.trim() || ""),
     vitaminD: parseCalorieInput($("note-editor-vitamin-d")?.value.trim() || ""),
+    vitaminB6: parseCalorieInput($("note-editor-vitamin-b6")?.value.trim() || ""),
+    vitaminB12: parseCalorieInput($("note-editor-vitamin-b12")?.value.trim() || ""),
   };
   const hasNutrition = hasAnyNutrientValue(macros, micros, vitamins);
   if (calories === null && !hasNutrition) return null;
@@ -3018,10 +3050,15 @@ function normalizeAIEstimatedNutrition(payload) {
     potassium: parseEstimatedNutritionValue(payload?.micros?.potassium),
     calcium: parseEstimatedNutritionValue(payload?.micros?.calcium),
     iron: parseEstimatedNutritionValue(payload?.micros?.iron),
+    magnesium: parseEstimatedNutritionValue(payload?.micros?.magnesium),
+    zinc: parseEstimatedNutritionValue(payload?.micros?.zinc),
   };
   const vitamins = {
+    vitaminA: parseEstimatedNutritionValue(payload?.vitamins?.vitaminA),
     vitaminC: parseEstimatedNutritionValue(payload?.vitamins?.vitaminC),
     vitaminD: parseEstimatedNutritionValue(payload?.vitamins?.vitaminD),
+    vitaminB6: parseEstimatedNutritionValue(payload?.vitamins?.vitaminB6),
+    vitaminB12: parseEstimatedNutritionValue(payload?.vitamins?.vitaminB12),
   };
   const hasNutrition = hasAnyNutrientValue(macros, micros, vitamins);
   if (calories === null && !hasNutrition) return null;
@@ -3052,8 +3089,9 @@ async function estimateCaloriesWithAI(noteText) {
   const nutritionPrompt = [
     "You are a precise nutritional expert.",
     "Return ONLY valid JSON with this exact shape:",
-    "{\"calories\": number|null, \"macros\": {\"protein\": number|null, \"carbs\": number|null, \"fat\": number|null}, \"micros\": {\"sodium\": number|null, \"potassium\": number|null, \"calcium\": number|null, \"iron\": number|null}, \"vitamins\": {\"vitaminC\": number|null, \"vitaminD\": number|null}}.",
-    "Use milligrams for sodium/potassium/calcium/iron/vitaminC and micrograms for vitaminD.",
+    "{\"calories\": number|null, \"macros\": {\"protein\": number|null, \"carbs\": number|null, \"fat\": number|null}, \"micros\": {\"sodium\": number|null, \"potassium\": number|null, \"calcium\": number|null, \"iron\": number|null, \"magnesium\": number|null, \"zinc\": number|null}, \"vitamins\": {\"vitaminA\": number|null, \"vitaminC\": number|null, \"vitaminD\": number|null, \"vitaminB6\": number|null, \"vitaminB12\": number|null}}.",
+    "If the note includes structured nutrition-label details such as serving information or listed nutrient values, extract those exact nutrition-facts values when possible.",
+    "Use milligrams for sodium/potassium/calcium/iron/magnesium/zinc/vitaminC/vitaminB6 and micrograms for vitaminA/vitaminD/vitaminB12.",
     "Use numbers only, no units, no extra keys, no markdown, no explanation.",
     "If unknown, use null.",
   ].join(" ");
@@ -3088,7 +3126,7 @@ async function estimateCaloriesWithAI(noteText) {
           },
         ],
         temperature: 0.3,
-        max_tokens: 220,
+        max_tokens: 320,
       }),
     });
 
@@ -3342,8 +3380,8 @@ function initButtons() {
       setNoteEditorNutritionFields(estimatedNutrition);
       const caloriesLabel = Number.isFinite(estimatedNutrition.calories)
         ? ` ${estimatedNutrition.calories} calories`
-        : " nutrition";
-      showToast(`Estimated${caloriesLabel} with AI`);
+        : " nutrition facts";
+      showToast(`Filled${caloriesLabel} with AI`);
     }
   });
   attachNoteEditorSwipeHandlers();
@@ -4492,8 +4530,13 @@ function buildNoteNutritionChips(calorieEntry) {
     ["Potassium", calorieEntry?.micros?.potassium, "mg"],
     ["Calcium", calorieEntry?.micros?.calcium, "mg"],
     ["Iron", calorieEntry?.micros?.iron, "mg"],
+    ["Magnesium", calorieEntry?.micros?.magnesium, "mg"],
+    ["Zinc", calorieEntry?.micros?.zinc, "mg"],
+    ["Vitamin A", calorieEntry?.vitamins?.vitaminA, "mcg"],
     ["Vitamin C", calorieEntry?.vitamins?.vitaminC, "mg"],
     ["Vitamin D", calorieEntry?.vitamins?.vitaminD, "mcg"],
+    ["Vitamin B6", calorieEntry?.vitamins?.vitaminB6, "mg"],
+    ["Vitamin B12", calorieEntry?.vitamins?.vitaminB12, "mcg"],
   ];
   return chipSpecs
     .filter(([, value]) => Number.isFinite(value))
@@ -4541,7 +4584,9 @@ function buildNoteCard(note) {
 
     const nutritionRow = document.createElement("div");
     nutritionRow.className = "note-nutrition-row";
-    buildNoteNutritionChips(note.calorieEntry).forEach((chip) => nutritionRow.appendChild(chip));
+    buildNoteNutritionChips(note.calorieEntry).forEach((chip) => {
+      nutritionRow.appendChild(chip);
+    });
     if (nutritionRow.childElementCount > 0) detailWrap.appendChild(nutritionRow);
 
     entry.appendChild(calorieBox);

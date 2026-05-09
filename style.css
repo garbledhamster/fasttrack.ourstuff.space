@@ -264,6 +264,21 @@ body.bg-slate-950 {
   gap: 8px;
 }
 
+.nutrition-input-grid-labeled {
+  gap: 10px;
+}
+
+.nutrition-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nutrition-input-label {
+  font-size: 11px;
+  color: var(--text-muted-color);
+}
+
 .note-badge {
   display: inline-flex;
   align-items: center;
