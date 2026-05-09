@@ -1533,7 +1533,9 @@ function mergeStateWithDefaults(parsed) {
 		parsedTheme,
 	);
 	merged.settings.calories = mergeCalorieSettings(parsedSettings.calories);
-	merged.settings.openaiModel = normalizeOpenAIModel(merged.settings.openaiModel);
+	merged.settings.openaiModel = normalizeOpenAIModel(
+		merged.settings.openaiModel,
+	);
 	merged.settings.openaiReasoningEffort = normalizeOpenAIReasoningEffort(
 		merged.settings.openaiReasoningEffort,
 	);
@@ -3381,7 +3383,9 @@ function normalizeOpenAIModel(value) {
 }
 
 function normalizeOpenAIReasoningEffort(value) {
-	const next = String(value || "").trim().toLowerCase();
+	const next = String(value || "")
+		.trim()
+		.toLowerCase();
 	return OPENAI_REASONING_EFFORTS.has(next) ? next : "none";
 }
 
@@ -3415,7 +3419,9 @@ function renderOpenAIModelOptions() {
 		modelSelect.appendChild(option);
 	});
 	const fallbackModel = models[0] || DEFAULT_OPENAI_MODEL;
-	const resolvedModel = models.includes(selectedModel) ? selectedModel : fallbackModel;
+	const resolvedModel = models.includes(selectedModel)
+		? selectedModel
+		: fallbackModel;
 	if (resolvedModel !== state.settings.openaiModel) {
 		state.settings.openaiModel = resolvedModel;
 		void saveState();
@@ -3456,13 +3462,15 @@ async function loadOpenAIModels(forceRefresh = false) {
 		const data = await response.json();
 		const modelIds = Array.isArray(data?.data)
 			? data.data
-					.map((model) => (typeof model?.id === "string" ? model.id.trim() : ""))
+					.map((model) =>
+						typeof model?.id === "string" ? model.id.trim() : "",
+					)
 					.filter(Boolean)
 			: [];
 		const likelyChatModels = modelIds.filter(isLikelyOpenAIChatModel);
-		const options = (likelyChatModels.length ? likelyChatModels : modelIds).sort(
-			(left, right) => left.localeCompare(right),
-		);
+		const options = (
+			likelyChatModels.length ? likelyChatModels : modelIds
+		).sort((left, right) => left.localeCompare(right));
 		openAIModelOptions = Array.from(new Set(options));
 		if (!openAIModelOptions.length) openAIModelOptions = [DEFAULT_OPENAI_MODEL];
 		openAIModelsLoadedForKey = apiKey;
