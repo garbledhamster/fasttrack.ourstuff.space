@@ -264,6 +264,10 @@ function buildDefaultNutrientGoals() {
 }
 const NUTRIENT_DECIMAL_THRESHOLD = 100;
 const NUTRIENT_NUMBER_FORMAT = new Intl.NumberFormat();
+const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
+const OPENAI_CHAT_MODEL_PATTERN = /^(gpt-|o\d+(-|$)|chatgpt-)/i;
+const OPENAI_REASONING_MODEL_PATTERN = /^o\d+(-|$)/i;
 
 const defaultState = {
 	settings: {
@@ -274,6 +278,8 @@ const defaultState = {
 		showRingEmojis: true,
 		timeDisplayMode: "elapsed",
 		openaiApiKey: "",
+		openaiModel: DEFAULT_OPENAI_MODEL,
+		openaiReasoningEffort: "none",
 		calories: {
 			dailyTarget: null,
 			goal: "",
@@ -338,6 +344,9 @@ let notesLoaded = false;
 let notes = [];
 let noteEditorCloseTimeout = null;
 let editingNoteId = null;
+let openAIModelOptions = [];
+let openAIModelsLoadedForKey = "";
+let reasoningSupportToastShown = false;
 let editingNoteDateKey = null;
 let editingNoteContext = null;
 let editingNoteCreatedAt = null;
@@ -1527,6 +1536,12 @@ function mergeStateWithDefaults(parsed) {
 		parsedTheme,
 	);
 	merged.settings.calories = mergeCalorieSettings(parsedSettings.calories);
+	merged.settings.openaiModel = normalizeOpenAIModel(
+		merged.settings.openaiModel,
+	);
+	merged.settings.openaiReasoningEffort = normalizeOpenAIReasoningEffort(
+		merged.settings.openaiReasoningEffort,
+	);
 	merged.activeFast = parsed.activeFast || null;
 	merged.history = Array.isArray(parsed.history) ? parsed.history : [];
 	merged.reminders = Object.assign(merged.reminders, parsed.reminders || {});
@@ -3365,8 +3380,169 @@ function parseAIJsonPayload(text) {
 	}
 }
 
-async function estimateCaloriesWithAI(noteText) {
+function normalizeOpenAIModel(value) {
+	const trimmed = String(value || "").trim();
+	return trimmed || DEFAULT_OPENAI_MODEL;
+}
+
+function normalizeOpenAIReasoningEffort(value) {
+	if (!value) return "none";
+	const next = String(value || "")
+		.trim()
+		.toLowerCase();
+	return OPENAI_REASONING_EFFORTS.has(next) ? next : "none";
+}
+
+function sanitizeBearerToken(value) {
+	const token = String(value || "").trim();
+	if (!token || /[\r\n]/.test(token)) return "";
+	return token;
+}
+
+function isLikelyOpenAIChatModel(modelId) {
+	return OPENAI_CHAT_MODEL_PATTERN.test(modelId);
+}
+
+function supportsReasoningEffort(modelId) {
+	return OPENAI_REASONING_MODEL_PATTERN.test(modelId);
+}
+
+function resetReasoningSupportToast() {
+	reasoningSupportToastShown = false;
+}
+
+function showReasoningUnsupportedToastOnce() {
+	if (reasoningSupportToastShown) return;
+	showToast("Reasoning mode is not supported by the selected model");
+	reasoningSupportToastShown = true;
+}
+
+function syncReasoningSettingForModel() {
+	const reasoningSelect = $("openai-reasoning-effort");
+	const selectedModel = normalizeOpenAIModel(state.settings.openaiModel);
+	const supportsReasoning = supportsReasoningEffort(selectedModel);
+	const currentReasoning = normalizeOpenAIReasoningEffort(
+		state.settings.openaiReasoningEffort,
+	);
+	if (reasoningSelect) {
+		reasoningSelect.disabled = !supportsReasoning;
+		reasoningSelect.title = supportsReasoning
+			? ""
+			: "Reasoning mode is available only for compatible o-series models.";
+	}
+	if (!supportsReasoning && currentReasoning !== "none") {
+		state.settings.openaiReasoningEffort = "none";
+		if (reasoningSelect) reasoningSelect.value = "none";
+		return true;
+	}
+	return false;
+}
+
+function renderOpenAIModelOptions() {
+	const modelSelect = $("openai-model-select");
+	if (!modelSelect) return;
 	const apiKey = state.settings.openaiApiKey?.trim();
+	const selectedModel = normalizeOpenAIModel(state.settings.openaiModel);
+	modelSelect.innerHTML = "";
+	if (!apiKey) {
+		const option = document.createElement("option");
+		option.value = selectedModel;
+		option.textContent = `${selectedModel} (add API key to load models)`;
+		modelSelect.appendChild(option);
+		modelSelect.value = selectedModel;
+		modelSelect.disabled = true;
+		return;
+	}
+	const models = openAIModelOptions.length
+		? [...openAIModelOptions]
+		: [DEFAULT_OPENAI_MODEL];
+	if (!models.includes(selectedModel)) models.unshift(selectedModel);
+	models.forEach((modelId) => {
+		const option = document.createElement("option");
+		option.value = modelId;
+		option.textContent = modelId;
+		modelSelect.appendChild(option);
+	});
+	const fallbackModel = models[0] || DEFAULT_OPENAI_MODEL;
+	const resolvedModel = models.includes(selectedModel)
+		? selectedModel
+		: fallbackModel;
+	if (resolvedModel !== state.settings.openaiModel) {
+		state.settings.openaiModel = resolvedModel;
+		void saveState();
+	}
+	modelSelect.value = resolvedModel;
+	modelSelect.disabled = false;
+}
+
+async function loadOpenAIModels(forceRefresh = false) {
+	const modelSelect = $("openai-model-select");
+	if (!modelSelect) return;
+	const apiKey = sanitizeBearerToken(state.settings.openaiApiKey);
+	if (!apiKey) {
+		openAIModelOptions = [];
+		openAIModelsLoadedForKey = "";
+		renderOpenAIModelOptions();
+		return;
+	}
+	if (
+		!forceRefresh &&
+		openAIModelsLoadedForKey === apiKey &&
+		openAIModelOptions.length
+	) {
+		renderOpenAIModelOptions();
+		return;
+	}
+	modelSelect.disabled = true;
+	try {
+		const response = await fetch("https://api.openai.com/v1/models", {
+			headers: {
+				Authorization: `Bearer ${apiKey}`,
+			},
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(
+				error?.error?.message ||
+					`Could not load models (HTTP ${response.status})`,
+			);
+		}
+		const data = await response.json();
+		const modelIds = Array.isArray(data?.data)
+			? data.data
+					.map((model) =>
+						typeof model?.id === "string" ? model.id.trim() : "",
+					)
+					.filter(Boolean)
+			: [];
+		const likelyChatModels = modelIds.filter(isLikelyOpenAIChatModel);
+		const options = (
+			likelyChatModels.length ? likelyChatModels : [DEFAULT_OPENAI_MODEL]
+		).sort((left, right) =>
+			left.localeCompare(right, "en", {
+				sensitivity: "base",
+				numeric: true,
+			}),
+		);
+		openAIModelOptions = Array.from(new Set(options));
+		if (!openAIModelOptions.length) openAIModelOptions = [DEFAULT_OPENAI_MODEL];
+		openAIModelsLoadedForKey = apiKey;
+	} catch (error) {
+		console.error("Failed to load OpenAI models:", error);
+		showToast(`Could not load OpenAI models, using ${DEFAULT_OPENAI_MODEL}`);
+		openAIModelOptions = [DEFAULT_OPENAI_MODEL];
+		openAIModelsLoadedForKey = "";
+	} finally {
+		renderOpenAIModelOptions();
+	}
+}
+
+async function estimateCaloriesWithAI(noteText) {
+	const apiKey = sanitizeBearerToken(state.settings.openaiApiKey);
+	const model = normalizeOpenAIModel(state.settings.openaiModel);
+	const reasoningEffort = normalizeOpenAIReasoningEffort(
+		state.settings.openaiReasoningEffort,
+	);
 	const nutritionPrompt = [
 		"You are a precise nutritional expert.",
 		"Return ONLY valid JSON with this exact shape:",
@@ -3388,27 +3564,34 @@ async function estimateCaloriesWithAI(noteText) {
 	}
 
 	try {
+		const requestBody = {
+			model,
+			messages: [
+				{
+					role: "system",
+					content: nutritionPrompt,
+				},
+				{
+					role: "user",
+					content: noteText,
+				},
+			],
+			temperature: 0.3,
+			max_tokens: 320,
+		};
+		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
+			requestBody.reasoning_effort = reasoningEffort;
+			resetReasoningSupportToast();
+		} else if (reasoningEffort !== "none") {
+			showReasoningUnsupportedToastOnce();
+		}
 		const response = await fetch("https://api.openai.com/v1/chat/completions", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				Authorization: `Bearer ${apiKey}`,
 			},
-			body: JSON.stringify({
-				model: "gpt-4o-mini",
-				messages: [
-					{
-						role: "system",
-						content: nutritionPrompt,
-					},
-					{
-						role: "user",
-						content: noteText,
-					},
-				],
-				temperature: 0.3,
-				max_tokens: 320,
-			}),
+			body: JSON.stringify(requestBody),
 		});
 
 		if (!response.ok) {
@@ -3528,6 +3711,25 @@ function initButtons() {
 				console.error("Failed to save API key to user document:", err);
 			}
 		}
+		await loadOpenAIModels(true);
+		renderSettings();
+	});
+
+	$("openai-model-select").addEventListener("change", (event) => {
+		state.settings.openaiModel = normalizeOpenAIModel(event.target.value);
+		if (syncReasoningSettingForModel()) {
+			showToast("Reasoning mode was turned off for this model");
+		}
+		resetReasoningSupportToast();
+		void saveState();
+	});
+
+	$("openai-reasoning-effort").addEventListener("change", (event) => {
+		state.settings.openaiReasoningEffort = normalizeOpenAIReasoningEffort(
+			event.target.value,
+		);
+		resetReasoningSupportToast();
+		void saveState();
 	});
 
 	$("theme-preset-select").addEventListener("change", (event) => {
@@ -3844,6 +4046,8 @@ function renderSettings() {
 	const presetId = resolveThemePresetId();
 	const unitSelect = $("calorie-unit-system");
 	const unitSystem = getCalorieUnitSystem();
+	const reasoningSelect = $("openai-reasoning-effort");
+	const apiKey = state.settings.openaiApiKey?.trim();
 	$("default-fast-select").value = resolveFastTypeId(
 		state.settings.defaultFastTypeId,
 	);
@@ -3858,6 +4062,13 @@ function renderSettings() {
 	);
 	if (unitSelect) unitSelect.value = unitSystem;
 	$("openai-api-key").value = state.settings.openaiApiKey || "";
+	renderOpenAIModelOptions();
+	if (reasoningSelect) {
+		reasoningSelect.value = normalizeOpenAIReasoningEffort(
+			state.settings.openaiReasoningEffort,
+		);
+	}
+	if (syncReasoningSettingForModel()) void saveState();
 	$("theme-preset-select").value = presetId;
 	$("theme-custom-controls").classList.toggle("hidden", presetId !== "custom");
 	$("theme-primary-color").value = customTheme.primaryColor;
@@ -3869,6 +4080,12 @@ function renderSettings() {
 	$("theme-text-color").value = customTheme.textColor;
 	$("theme-text-muted-color").value = customTheme.textMutedColor;
 	$("theme-danger-color").value = customTheme.dangerColor;
+	if (
+		apiKey &&
+		(openAIModelsLoadedForKey !== apiKey || !openAIModelOptions.length)
+	) {
+		void loadOpenAIModels();
+	}
 	renderAlertsPill();
 }
 
