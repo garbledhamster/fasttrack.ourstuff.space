@@ -264,10 +264,20 @@ function buildDefaultNutrientGoals() {
 }
 const NUTRIENT_DECIMAL_THRESHOLD = 100;
 const NUTRIENT_NUMBER_FORMAT = new Intl.NumberFormat();
-const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
-const OPENAI_CHAT_MODEL_PATTERN = /^(gpt-|o\d+(-|$)|chatgpt-)/i;
-const OPENAI_REASONING_MODEL_PATTERN = /^o\d+(-|$)/i;
+const OPENAI_TOOL_OPTIONS = new Set([
+	"none",
+	"web_search_preview",
+	"code_interpreter",
+]);
+const OPENAI_LATEST_MODEL_PREFIXES = Object.freeze([
+	"gpt-5",
+	"gpt-4.1",
+	"gpt-4o",
+	"o4-mini",
+	"o3",
+]);
 
 const defaultState = {
 	settings: {
@@ -280,6 +290,7 @@ const defaultState = {
 		openaiApiKey: "",
 		openaiModel: DEFAULT_OPENAI_MODEL,
 		openaiReasoningEffort: "none",
+		openaiTool: "none",
 		calories: {
 			dailyTarget: null,
 			goal: "",
@@ -1542,6 +1553,7 @@ function mergeStateWithDefaults(parsed) {
 	merged.settings.openaiReasoningEffort = normalizeOpenAIReasoningEffort(
 		merged.settings.openaiReasoningEffort,
 	);
+	merged.settings.openaiTool = normalizeOpenAITool(merged.settings.openaiTool);
 	merged.activeFast = parsed.activeFast || null;
 	merged.history = Array.isArray(parsed.history) ? parsed.history : [];
 	merged.reminders = Object.assign(merged.reminders, parsed.reminders || {});
@@ -3393,18 +3405,78 @@ function normalizeOpenAIReasoningEffort(value) {
 	return OPENAI_REASONING_EFFORTS.has(next) ? next : "none";
 }
 
+function normalizeOpenAITool(value) {
+	if (!value) return "none";
+	const next = String(value || "")
+		.trim()
+		.toLowerCase();
+	return OPENAI_TOOL_OPTIONS.has(next) ? next : "none";
+}
+
 function sanitizeBearerToken(value) {
 	const token = String(value || "").trim();
 	if (!token || /[\r\n]/.test(token)) return "";
 	return token;
 }
 
-function isLikelyOpenAIChatModel(modelId) {
-	return OPENAI_CHAT_MODEL_PATTERN.test(modelId);
+function isLatestOpenAIModel(modelId) {
+	const normalized = String(modelId || "")
+		.trim()
+		.toLowerCase();
+	if (!normalized) return false;
+	return OPENAI_LATEST_MODEL_PREFIXES.some(
+		(prefix) => normalized === prefix || normalized.startsWith(`${prefix}-`),
+	);
 }
 
 function supportsReasoningEffort(modelId) {
-	return OPENAI_REASONING_MODEL_PATTERN.test(modelId);
+	const normalized = String(modelId || "")
+		.trim()
+		.toLowerCase();
+	return normalized.startsWith("o") || normalized.startsWith("gpt-5");
+}
+
+function compareOpenAIModelOptions(left, right) {
+	const lowerLeft = left.toLowerCase();
+	const lowerRight = right.toLowerCase();
+	const leftPrefixIndex = OPENAI_LATEST_MODEL_PREFIXES.findIndex(
+		(prefix) => lowerLeft === prefix || lowerLeft.startsWith(`${prefix}-`),
+	);
+	const rightPrefixIndex = OPENAI_LATEST_MODEL_PREFIXES.findIndex(
+		(prefix) => lowerRight === prefix || lowerRight.startsWith(`${prefix}-`),
+	);
+	const leftRank =
+		leftPrefixIndex === -1
+			? OPENAI_LATEST_MODEL_PREFIXES.length
+			: leftPrefixIndex;
+	const rightRank =
+		rightPrefixIndex === -1
+			? OPENAI_LATEST_MODEL_PREFIXES.length
+			: rightPrefixIndex;
+	if (leftRank !== rightRank) return leftRank - rightRank;
+	return left.localeCompare(right, "en", {
+		sensitivity: "base",
+		numeric: true,
+	});
+}
+
+function extractResponseText(responsePayload) {
+	if (typeof responsePayload?.output_text === "string") {
+		const text = responsePayload.output_text.trim();
+		if (text) return text;
+	}
+	const outputItems = Array.isArray(responsePayload?.output)
+		? responsePayload.output
+		: [];
+	const contentTexts = outputItems.flatMap((item) =>
+		Array.isArray(item?.content)
+			? item.content
+					.filter((contentItem) => contentItem?.type === "output_text")
+					.map((contentItem) => String(contentItem?.text || "").trim())
+					.filter(Boolean)
+			: [],
+	);
+	return contentTexts.join("\n").trim();
 }
 
 function resetReasoningSupportToast() {
@@ -3515,15 +3587,10 @@ async function loadOpenAIModels(forceRefresh = false) {
 					)
 					.filter(Boolean)
 			: [];
-		const likelyChatModels = modelIds.filter(isLikelyOpenAIChatModel);
+		const latestModels = modelIds.filter(isLatestOpenAIModel);
 		const options = (
-			likelyChatModels.length ? likelyChatModels : [DEFAULT_OPENAI_MODEL]
-		).sort((left, right) =>
-			left.localeCompare(right, "en", {
-				sensitivity: "base",
-				numeric: true,
-			}),
-		);
+			latestModels.length ? latestModels : [DEFAULT_OPENAI_MODEL]
+		).sort(compareOpenAIModelOptions);
 		openAIModelOptions = Array.from(new Set(options));
 		if (!openAIModelOptions.length) openAIModelOptions = [DEFAULT_OPENAI_MODEL];
 		openAIModelsLoadedForKey = apiKey;
@@ -3543,6 +3610,7 @@ async function estimateCaloriesWithAI(noteText) {
 	const reasoningEffort = normalizeOpenAIReasoningEffort(
 		state.settings.openaiReasoningEffort,
 	);
+	const selectedTool = normalizeOpenAITool(state.settings.openaiTool);
 	const nutritionPrompt = [
 		"You are a precise nutritional expert.",
 		"Return ONLY valid JSON with this exact shape:",
@@ -3566,7 +3634,7 @@ async function estimateCaloriesWithAI(noteText) {
 	try {
 		const requestBody = {
 			model,
-			messages: [
+			input: [
 				{
 					role: "system",
 					content: nutritionPrompt,
@@ -3577,15 +3645,18 @@ async function estimateCaloriesWithAI(noteText) {
 				},
 			],
 			temperature: 0.3,
-			max_tokens: 320,
+			max_output_tokens: 320,
 		};
 		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
-			requestBody.reasoning_effort = reasoningEffort;
+			requestBody.reasoning = { effort: reasoningEffort };
 			resetReasoningSupportToast();
 		} else if (reasoningEffort !== "none") {
 			showReasoningUnsupportedToastOnce();
 		}
-		const response = await fetch("https://api.openai.com/v1/chat/completions", {
+		if (selectedTool !== "none") {
+			requestBody.tools = [{ type: selectedTool }];
+		}
+		const response = await fetch("https://api.openai.com/v1/responses", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -3602,7 +3673,7 @@ async function estimateCaloriesWithAI(noteText) {
 		}
 
 		const data = await response.json();
-		const aiText = data.choices[0]?.message?.content?.trim();
+		const aiText = extractResponseText(data);
 
 		if (!aiText) {
 			showToast("No response from AI");
@@ -3729,6 +3800,10 @@ function initButtons() {
 			event.target.value,
 		);
 		resetReasoningSupportToast();
+		void saveState();
+	});
+	$("openai-tool-select").addEventListener("change", (event) => {
+		state.settings.openaiTool = normalizeOpenAITool(event.target.value);
 		void saveState();
 	});
 
@@ -4047,6 +4122,7 @@ function renderSettings() {
 	const unitSelect = $("calorie-unit-system");
 	const unitSystem = getCalorieUnitSystem();
 	const reasoningSelect = $("openai-reasoning-effort");
+	const toolSelect = $("openai-tool-select");
 	const apiKey = state.settings.openaiApiKey?.trim();
 	$("default-fast-select").value = resolveFastTypeId(
 		state.settings.defaultFastTypeId,
@@ -4067,6 +4143,9 @@ function renderSettings() {
 		reasoningSelect.value = normalizeOpenAIReasoningEffort(
 			state.settings.openaiReasoningEffort,
 		);
+	}
+	if (toolSelect) {
+		toolSelect.value = normalizeOpenAITool(state.settings.openaiTool);
 	}
 	if (syncReasoningSettingForModel()) void saveState();
 	$("theme-preset-select").value = presetId;

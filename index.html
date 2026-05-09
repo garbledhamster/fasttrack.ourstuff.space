@@ -407,7 +407,7 @@
           <div>
             <label class="block text-sm md:text-xs text-muted mb-1" for="openai-model-select">OpenAI model</label>
             <select id="openai-model-select" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
-              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-5-mini">gpt-5-mini</option>
             </select>
           </div>
           <div>
@@ -417,6 +417,14 @@
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm md:text-xs text-muted mb-1" for="openai-tool-select">AI tool option</label>
+            <select id="openai-tool-select" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
+              <option value="none">None</option>
+              <option value="web_search_preview">Web search</option>
+              <option value="code_interpreter">Code interpreter</option>
             </select>
           </div>
         </div>
