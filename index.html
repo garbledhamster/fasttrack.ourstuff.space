@@ -255,30 +255,55 @@
             </div>
             <p id="calorie-summary" class="text-sm md:text-xs text-muted text-center">Set a target to track remaining calories.</p>
             <div class="w-full rounded-2xl border border-default surface-soft px-4 py-3">
-              <div class="text-xs uppercase tracking-[0.2em] text-subtle text-center mb-2">Daily macro &amp; micro tracker</div>
+              <div class="text-xs uppercase tracking-[0.2em] text-subtle text-center mb-2">Daily macros, vitamins &amp; minerals tracker</div>
               <div class="nutrition-grid">
                 <div class="nutrition-stat-card">
                   <div id="nutrition-protein-value" class="nutrition-stat-value">0 g</div>
                   <div class="nutrition-stat-label">Protein</div>
+                  <div id="nutrition-protein-goal" class="nutrition-stat-goal">Goal —</div>
                 </div>
                 <div class="nutrition-stat-card">
                   <div id="nutrition-carbs-value" class="nutrition-stat-value">0 g</div>
                   <div class="nutrition-stat-label">Carbs</div>
+                  <div id="nutrition-carbs-goal" class="nutrition-stat-goal">Goal —</div>
                 </div>
                 <div class="nutrition-stat-card">
                   <div id="nutrition-fat-value" class="nutrition-stat-value">0 g</div>
                   <div class="nutrition-stat-label">Fat</div>
+                  <div id="nutrition-fat-goal" class="nutrition-stat-goal">Goal —</div>
                 </div>
                 <div class="nutrition-stat-card">
                   <div id="nutrition-sodium-value" class="nutrition-stat-value">0 mg</div>
                   <div class="nutrition-stat-label">Sodium</div>
+                  <div id="nutrition-sodium-goal" class="nutrition-stat-goal">Goal —</div>
                 </div>
                 <div class="nutrition-stat-card">
                   <div id="nutrition-potassium-value" class="nutrition-stat-value">0 mg</div>
                   <div class="nutrition-stat-label">Potassium</div>
+                  <div id="nutrition-potassium-goal" class="nutrition-stat-goal">Goal —</div>
+                </div>
+                <div class="nutrition-stat-card">
+                  <div id="nutrition-calcium-value" class="nutrition-stat-value">0 mg</div>
+                  <div class="nutrition-stat-label">Calcium</div>
+                  <div id="nutrition-calcium-goal" class="nutrition-stat-goal">Goal —</div>
+                </div>
+                <div class="nutrition-stat-card">
+                  <div id="nutrition-iron-value" class="nutrition-stat-value">0 mg</div>
+                  <div class="nutrition-stat-label">Iron</div>
+                  <div id="nutrition-iron-goal" class="nutrition-stat-goal">Goal —</div>
+                </div>
+                <div class="nutrition-stat-card">
+                  <div id="nutrition-vitamin-c-value" class="nutrition-stat-value">0 mg</div>
+                  <div class="nutrition-stat-label">Vitamin C</div>
+                  <div id="nutrition-vitamin-c-goal" class="nutrition-stat-goal">Goal —</div>
+                </div>
+                <div class="nutrition-stat-card">
+                  <div id="nutrition-vitamin-d-value" class="nutrition-stat-value">0 mcg</div>
+                  <div class="nutrition-stat-label">Vitamin D</div>
+                  <div id="nutrition-vitamin-d-goal" class="nutrition-stat-goal">Goal —</div>
                 </div>
               </div>
-              <p id="nutrition-summary" class="text-xs md:text-[11px] text-muted text-center mt-3">Log a meal note to start tracking macros and micros.</p>
+              <p id="nutrition-summary" class="text-xs md:text-[11px] text-muted text-center mt-3">Log a meal note to start tracking macros, vitamins, and minerals.</p>
             </div>
           </div>
         </div>
@@ -538,6 +563,20 @@
           <input id="calorie-weight-input" type="number" min="0" step="0.1" inputmode="decimal" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 72.5 kg">
           <p id="calorie-weight-subtext" class="text-xs md:text-[11px] text-subtle mt-1">Current weight in kilograms.</p>
         </div>
+        <div class="rounded-xl border border-default surface-soft p-3 md:col-span-2">
+          <h3 class="text-xs uppercase tracking-[0.2em] text-subtle mb-2">Daily nutrient goals</h3>
+          <div class="nutrition-input-grid">
+            <input id="calorie-goal-protein" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Protein goal grams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Protein goal (g)">
+            <input id="calorie-goal-carbs" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Carbs goal grams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Carbs goal (g)">
+            <input id="calorie-goal-fat" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Fat goal grams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Fat goal (g)">
+            <input id="calorie-goal-sodium" type="number" min="0" step="1" inputmode="numeric" aria-label="Sodium goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Sodium goal (mg)">
+            <input id="calorie-goal-potassium" type="number" min="0" step="1" inputmode="numeric" aria-label="Potassium goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Potassium goal (mg)">
+            <input id="calorie-goal-calcium" type="number" min="0" step="1" inputmode="numeric" aria-label="Calcium goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Calcium goal (mg)">
+            <input id="calorie-goal-iron" type="number" min="0" step="1" inputmode="numeric" aria-label="Iron goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Iron goal (mg)">
+            <input id="calorie-goal-vitamin-c" type="number" min="0" step="1" inputmode="numeric" aria-label="Vitamin C goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin C goal (mg)">
+            <input id="calorie-goal-vitamin-d" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Vitamin D goal micrograms" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin D goal (mcg)">
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -659,10 +698,19 @@
         </div>
       </div>
       <div class="mt-3">
-        <label class="block text-sm md:text-xs text-muted mb-2">Micros (mg)</label>
+        <label class="block text-sm md:text-xs text-muted mb-2">Minerals</label>
         <div class="nutrition-input-grid">
           <input id="note-editor-sodium" type="number" min="0" step="1" aria-label="Sodium milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Sodium">
           <input id="note-editor-potassium" type="number" min="0" step="1" aria-label="Potassium milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Potassium">
+          <input id="note-editor-calcium" type="number" min="0" step="1" aria-label="Calcium milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Calcium">
+          <input id="note-editor-iron" type="number" min="0" step="1" aria-label="Iron milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Iron">
+        </div>
+      </div>
+      <div class="mt-3">
+        <label class="block text-sm md:text-xs text-muted mb-2">Vitamins</label>
+        <div class="nutrition-input-grid">
+          <input id="note-editor-vitamin-c" type="number" min="0" step="1" aria-label="Vitamin C milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin C (mg)">
+          <input id="note-editor-vitamin-d" type="number" min="0" step="0.1" aria-label="Vitamin D micrograms" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin D (mcg)">
         </div>
       </div>
       <div class="flex gap-2 mt-3">

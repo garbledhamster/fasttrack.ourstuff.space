@@ -225,6 +225,12 @@ body.bg-slate-950 {
   gap: 8px;
 }
 
+@media (width >= 640px) {
+  .nutrition-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .nutrition-stat-card {
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -244,6 +250,12 @@ body.bg-slate-950 {
   margin-top: 2px;
   font-size: 11px;
   color: var(--text-muted-color);
+}
+
+.nutrition-stat-goal {
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--text-subtle-color);
 }
 
 .nutrition-input-grid {

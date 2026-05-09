@@ -47,6 +47,7 @@ const _NOTES_SCHEMA = Object.freeze({
     currentWeight: null,
     gender: "",
     fitnessLevel: "",
+    nutrientGoals: {},
   },
   fastContext: {
     wasActive: false,
@@ -67,6 +68,12 @@ const _NOTES_SCHEMA = Object.freeze({
     micros: {
       sodium: null,
       potassium: null,
+      calcium: null,
+      iron: null,
+    },
+    vitamins: {
+      vitaminC: null,
+      vitaminD: null,
     },
     goalSnapshot: {
       dailyTarget: null,
@@ -76,6 +83,7 @@ const _NOTES_SCHEMA = Object.freeze({
       currentWeight: null,
       gender: "",
       fitnessLevel: "",
+      nutrientGoals: {},
     },
   },
 });
@@ -111,14 +119,49 @@ const CALORIE_VIEWS = [
 ];
 
 const MACRO_FIELDS = Object.freeze(["protein", "carbs", "fat"]);
-const MICRO_FIELDS = Object.freeze(["sodium", "potassium"]);
+const MICRO_FIELDS = Object.freeze(["sodium", "potassium", "calcium", "iron"]);
+const VITAMIN_FIELDS = Object.freeze(["vitaminC", "vitaminD"]);
+const NUTRIENT_TRACKER_DEFINITIONS = Object.freeze([
+  { key: "protein", group: "macros", label: "Protein", unit: "g", shortLabel: "P" },
+  { key: "carbs", group: "macros", label: "Carbs", unit: "g", shortLabel: "C" },
+  { key: "fat", group: "macros", label: "Fat", unit: "g", shortLabel: "F" },
+  { key: "sodium", group: "micros", label: "Sodium", unit: "mg", shortLabel: "Na" },
+  { key: "potassium", group: "micros", label: "Potassium", unit: "mg", shortLabel: "K" },
+  { key: "calcium", group: "micros", label: "Calcium", unit: "mg", shortLabel: "Ca" },
+  { key: "iron", group: "micros", label: "Iron", unit: "mg", shortLabel: "Fe" },
+  { key: "vitaminC", group: "vitamins", label: "Vitamin C", unit: "mg", shortLabel: "Vit C" },
+  { key: "vitaminD", group: "vitamins", label: "Vitamin D", unit: "mcg", shortLabel: "Vit D" },
+]);
+const NUTRIENT_GOAL_INPUT_FIELDS = Object.freeze([
+  { id: "calorie-goal-protein", group: "macros", key: "protein" },
+  { id: "calorie-goal-carbs", group: "macros", key: "carbs" },
+  { id: "calorie-goal-fat", group: "macros", key: "fat" },
+  { id: "calorie-goal-sodium", group: "micros", key: "sodium" },
+  { id: "calorie-goal-potassium", group: "micros", key: "potassium" },
+  { id: "calorie-goal-calcium", group: "micros", key: "calcium" },
+  { id: "calorie-goal-iron", group: "micros", key: "iron" },
+  { id: "calorie-goal-vitamin-c", group: "vitamins", key: "vitaminC" },
+  { id: "calorie-goal-vitamin-d", group: "vitamins", key: "vitaminD" },
+]);
 const NOTE_EDITOR_NUTRIENT_FIELDS = Object.freeze([
   { id: "note-editor-protein", group: "macros", key: "protein" },
   { id: "note-editor-carbs", group: "macros", key: "carbs" },
   { id: "note-editor-fat", group: "macros", key: "fat" },
   { id: "note-editor-sodium", group: "micros", key: "sodium" },
   { id: "note-editor-potassium", group: "micros", key: "potassium" },
+  { id: "note-editor-calcium", group: "micros", key: "calcium" },
+  { id: "note-editor-iron", group: "micros", key: "iron" },
+  { id: "note-editor-vitamin-c", group: "vitamins", key: "vitaminC" },
+  { id: "note-editor-vitamin-d", group: "vitamins", key: "vitaminD" },
 ]);
+
+function buildDefaultNutrientGoals() {
+  return {
+    macros: Object.fromEntries(MACRO_FIELDS.map((field) => [field, null])),
+    micros: Object.fromEntries(MICRO_FIELDS.map((field) => [field, null])),
+    vitamins: Object.fromEntries(VITAMIN_FIELDS.map((field) => [field, null])),
+  };
+}
 const NUTRIENT_DECIMAL_THRESHOLD = 100;
 const NUTRIENT_NUMBER_FORMAT = new Intl.NumberFormat();
 
@@ -143,6 +186,7 @@ const defaultState = {
       target: null,
       consumed: 0,
       view: "total",
+      nutrientGoals: buildDefaultNutrientGoals(),
     },
     theme: {
       presetId: DEFAULT_THEME_ID,
@@ -535,6 +579,14 @@ function normalizeGoalMetric(value) {
   return num;
 }
 
+function normalizeNutrientGoalSettings(nutrientGoals) {
+  return {
+    macros: normalizeNutrientGroup(nutrientGoals?.macros, MACRO_FIELDS),
+    micros: normalizeNutrientGroup(nutrientGoals?.micros, MICRO_FIELDS),
+    vitamins: normalizeNutrientGroup(nutrientGoals?.vitamins, VITAMIN_FIELDS),
+  };
+}
+
 function normalizeGoalContext(goalContext) {
   if (!goalContext || typeof goalContext !== "object") {
     return {
@@ -545,6 +597,7 @@ function normalizeGoalContext(goalContext) {
       currentWeight: null,
       gender: "",
       fitnessLevel: "",
+      nutrientGoals: buildDefaultNutrientGoals(),
     };
   }
 
@@ -558,6 +611,7 @@ function normalizeGoalContext(goalContext) {
     currentWeight: normalizeGoalMetric(goalContext.currentWeight) ?? legacyWeight,
     gender: typeof goalContext.gender === "string" ? goalContext.gender : "",
     fitnessLevel: typeof goalContext.fitnessLevel === "string" ? goalContext.fitnessLevel : "",
+    nutrientGoals: normalizeNutrientGoalSettings(goalContext.nutrientGoals),
   };
 }
 
@@ -568,14 +622,16 @@ function normalizeCalorieEntry(entry) {
   const foodNote = typeof entry.foodNote === "string" ? entry.foodNote : "";
   const macros = normalizeNutrientGroup(entry.macros, MACRO_FIELDS);
   const micros = normalizeNutrientGroup(entry.micros, MICRO_FIELDS);
+  const vitamins = normalizeNutrientGroup(entry.vitamins, VITAMIN_FIELDS);
   const goalSnapshot = entry.goalSnapshot ? normalizeGoalContext(entry.goalSnapshot) : null;
-  const hasNutrientValue = hasAnyNutrientValue(macros, micros);
+  const hasNutrientValue = hasAnyNutrientValue(macros, micros, vitamins);
   if (normalizedCalories === null && !foodNote && !hasNutrientValue) return null;
   return {
     calories: normalizedCalories,
     foodNote,
     macros,
     micros,
+    vitamins,
     goalSnapshot,
   };
 }
@@ -588,8 +644,19 @@ function normalizeNutrientGroup(group, fields) {
   }, {});
 }
 
-function hasAnyNutrientValue(macros = {}, micros = {}, { positiveOnly = false } = {}) {
-  return [...Object.values(macros), ...Object.values(micros)].some((value) =>
+function hasAnyNutrientValue(macros = {}, micros = {}, vitaminsOrOptions = {}, maybeOptions = {}) {
+  const legacyOptions =
+    vitaminsOrOptions && typeof vitaminsOrOptions === "object"
+      ? vitaminsOrOptions
+      : null;
+  const usingLegacyOptionsArg =
+    legacyOptions &&
+    Object.hasOwn(legacyOptions, "positiveOnly") &&
+    (!maybeOptions || Object.keys(maybeOptions).length === 0);
+  const vitamins = usingLegacyOptionsArg ? {} : vitaminsOrOptions;
+  const options = usingLegacyOptionsArg ? legacyOptions : maybeOptions;
+  const { positiveOnly = false } = options || {};
+  return [...Object.values(macros), ...Object.values(micros), ...Object.values(vitamins)].some((value) =>
     Number.isFinite(value) && (!positiveOnly || value > 0),
   );
 }
@@ -688,6 +755,7 @@ function buildGoalContext() {
     currentWeight: normalizeGoalMetric(settings.currentWeight),
     gender: typeof settings.gender === "string" ? settings.gender : "",
     fitnessLevel: typeof settings.fitnessLevel === "string" ? settings.fitnessLevel : "",
+    nutrientGoals: normalizeNutrientGoalSettings(settings.nutrientGoals),
   };
 }
 
@@ -762,6 +830,7 @@ async function buildNoteUpdatePayload({
         ["currentWeight", resolvedGoalContext.currentWeight],
         ["gender", resolvedGoalContext.gender],
         ["fitnessLevel", resolvedGoalContext.fitnessLevel],
+        ["nutrientGoals", normalizeNutrientGoalSettings(resolvedGoalContext.nutrientGoals)],
       ];
       fields.forEach(([key, value]) => {
         if (value !== undefined) payload[`goalContext.${key}`] = value;
@@ -872,13 +941,20 @@ function buildCalorieEntryFromEditor() {
   const micros = {
     sodium: parseCalorieInput($("note-editor-sodium")?.value.trim() || ""),
     potassium: parseCalorieInput($("note-editor-potassium")?.value.trim() || ""),
+    calcium: parseCalorieInput($("note-editor-calcium")?.value.trim() || ""),
+    iron: parseCalorieInput($("note-editor-iron")?.value.trim() || ""),
   };
-  const hasNutrition = hasAnyNutrientValue(macros, micros);
+  const vitamins = {
+    vitaminC: parseCalorieInput($("note-editor-vitamin-c")?.value.trim() || ""),
+    vitaminD: parseCalorieInput($("note-editor-vitamin-d")?.value.trim() || ""),
+  };
+  const hasNutrition = hasAnyNutrientValue(macros, micros, vitamins);
   if (calories === null && !hasNutrition) return null;
   return {
     calories,
     macros,
     micros,
+    vitamins,
     goalSnapshot: buildGoalContext(),
   };
 }
@@ -2181,7 +2257,7 @@ function switchTab(tab) {
     btn.classList.toggle("text-subtle", !active);
   });
 
-  document.body.classList.toggle("tab-no-scroll", tab === "timer" || tab === "calories");
+  document.body.classList.toggle("tab-no-scroll", tab === "timer");
 
   setNotesNavActive(false);
 
@@ -2277,6 +2353,7 @@ function mergeCalorieSettings(settings) {
     const legacyWeight = normalizeGoalMetric(next.bmi);
     if (legacyWeight != null) next.currentWeight = legacyWeight;
   }
+  next.nutrientGoals = normalizeNutrientGoalSettings(next.nutrientGoals);
   if ("bmi" in next) delete next.bmi;
   return next;
 }
@@ -2333,6 +2410,7 @@ function getNoteNutritionTotalsForDateKey(dateKey = formatDateKey(new Date())) {
   const totals = {
     macros: Object.fromEntries(MACRO_FIELDS.map((field) => [field, 0])),
     micros: Object.fromEntries(MICRO_FIELDS.map((field) => [field, 0])),
+    vitamins: Object.fromEntries(VITAMIN_FIELDS.map((field) => [field, 0])),
   };
   if (!Array.isArray(notes) || notes.length === 0) return totals;
   notes.forEach((note) => {
@@ -2344,6 +2422,10 @@ function getNoteNutritionTotalsForDateKey(dateKey = formatDateKey(new Date())) {
     MICRO_FIELDS.forEach((field) => {
       const value = Number(note.calorieEntry?.micros?.[field]);
       if (Number.isFinite(value)) totals.micros[field] += value;
+    });
+    VITAMIN_FIELDS.forEach((field) => {
+      const value = Number(note.calorieEntry?.vitamins?.[field]);
+      if (Number.isFinite(value)) totals.vitamins[field] += value;
     });
   });
   return totals;
@@ -2358,46 +2440,45 @@ function formatNutrientValue(value, unit) {
 
 function formatNutritionInlineSummary(dateKey = formatDateKey(new Date())) {
   const totals = getNoteNutritionTotalsForDateKey(dateKey);
-  const macroBits = [
-    ["P", totals.macros.protein, "g"],
-    ["C", totals.macros.carbs, "g"],
-    ["F", totals.macros.fat, "g"],
-  ]
+  const bits = NUTRIENT_TRACKER_DEFINITIONS
+    .map(({ shortLabel, group, key, unit }) => [shortLabel, totals[group]?.[key], unit])
     .filter(([, value]) => Number.isFinite(value) && value > 0)
     .map(([label, value, unit]) => `${label} ${formatNutrientValue(value, unit)}`);
-  const microBits = [
-    ["Na", totals.micros.sodium, "mg"],
-    ["K", totals.micros.potassium, "mg"],
-  ]
-    .filter(([, value]) => Number.isFinite(value) && value > 0)
-    .map(([label, value, unit]) => `${label} ${formatNutrientValue(value, unit)}`);
-  const bits = [...macroBits, ...microBits];
   return bits.length ? bits.join(" • ") : "";
 }
 
 function renderNutritionTracker() {
   const dateKey = getCalorieDisplayDateKey();
   const totals = getNoteNutritionTotalsForDateKey(dateKey);
-  const proteinEl = $("nutrition-protein-value");
-  const carbsEl = $("nutrition-carbs-value");
-  const fatEl = $("nutrition-fat-value");
-  const sodiumEl = $("nutrition-sodium-value");
-  const potassiumEl = $("nutrition-potassium-value");
+  const settings = getCalorieSettings();
+  const goals = normalizeNutrientGoalSettings(settings.nutrientGoals);
   const summaryEl = $("nutrition-summary");
-  if (!proteinEl || !carbsEl || !fatEl || !sodiumEl || !potassiumEl || !summaryEl) return;
+  if (!summaryEl) return;
 
-  proteinEl.textContent = formatNutrientValue(totals.macros.protein, "g");
-  carbsEl.textContent = formatNutrientValue(totals.macros.carbs, "g");
-  fatEl.textContent = formatNutrientValue(totals.macros.fat, "g");
-  sodiumEl.textContent = formatNutrientValue(totals.micros.sodium, "mg");
-  potassiumEl.textContent = formatNutrientValue(totals.micros.potassium, "mg");
+  NUTRIENT_TRACKER_DEFINITIONS.forEach(({ key, group, unit }) => {
+    const idKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+    const valueEl = $(`nutrition-${idKey}-value`);
+    const goalEl = $(`nutrition-${idKey}-goal`);
+    if (valueEl) valueEl.textContent = formatNutrientValue(totals[group]?.[key], unit);
+    if (goalEl) {
+      const goalValue = goals[group]?.[key];
+      goalEl.textContent = Number.isFinite(goalValue)
+        ? `Goal ${formatNutrientValue(goalValue, unit)}`
+        : "Goal —";
+    }
+  });
 
-  const hasAnyNutrition = hasAnyNutrientValue(totals.macros, totals.micros, {
+  const hasAnyNutrition = hasAnyNutrientValue(totals.macros, totals.micros, totals.vitamins, {
+    positiveOnly: true,
+  });
+  const hasAnyGoal = hasAnyNutrientValue(goals.macros, goals.micros, goals.vitamins, {
     positiveOnly: true,
   });
   summaryEl.textContent = hasAnyNutrition
-    ? "Based on meal notes for the selected day."
-    : "Log a meal note to start tracking macros and micros.";
+    ? hasAnyGoal
+      ? "Based on meal notes for the selected day. Goal progress shown per tracker."
+      : "Based on meal notes for the selected day. Add daily nutrient goals in the Goal details panel."
+    : "Log a meal note to start tracking macros, vitamins, and minerals.";
 }
 
 function getEffectiveCalorieConsumed(dateKey = getCalorieDisplayDateKey()) {
@@ -2676,6 +2757,7 @@ function renderCalories() {
   const heightSubtext = $("calorie-height-subtext");
   const weightSubtext = $("calorie-weight-subtext");
   const settings = getCalorieSettings();
+  const nutrientGoals = normalizeNutrientGoalSettings(settings.nutrientGoals);
   const unitSystem = getCalorieUnitSystem();
   if (targetInput) {
     const target = getCalorieTarget();
@@ -2700,6 +2782,12 @@ function renderCalories() {
     const weight = normalizeGoalMetric(settings.currentWeight);
     weightInput.value = weight ? String(weight) : "";
   }
+  NUTRIENT_GOAL_INPUT_FIELDS.forEach(({ id, group, key }) => {
+    const input = $(id);
+    if (!input) return;
+    const value = nutrientGoals[group]?.[key];
+    input.value = Number.isFinite(value) ? String(value) : "";
+  });
   if (heightLabel) {
     heightLabel.textContent = unitSystem === "imperial" ? "Height (ft/in)" : "Height (cm)";
   }
@@ -2815,6 +2903,20 @@ function initCalories() {
       renderCalories();
     });
   }
+
+  NUTRIENT_GOAL_INPUT_FIELDS.forEach(({ id, group, key }) => {
+    const input = $(id);
+    if (!input) return;
+    input.addEventListener("input", (event) => {
+      const next = parseCalorieValue(event.target.value);
+      const settings = getCalorieSettings();
+      const nutrientGoals = normalizeNutrientGoalSettings(settings.nutrientGoals);
+      nutrientGoals[group][key] = next;
+      settings.nutrientGoals = nutrientGoals;
+      void saveState();
+      renderCalories();
+    });
+  });
 
   if (ringValue) {
     ringValue.addEventListener("click", () => {
@@ -4327,6 +4429,10 @@ function buildNoteNutritionChips(calorieEntry) {
     ["Fat", calorieEntry?.macros?.fat, "g"],
     ["Sodium", calorieEntry?.micros?.sodium, "mg"],
     ["Potassium", calorieEntry?.micros?.potassium, "mg"],
+    ["Calcium", calorieEntry?.micros?.calcium, "mg"],
+    ["Iron", calorieEntry?.micros?.iron, "mg"],
+    ["Vitamin C", calorieEntry?.vitamins?.vitaminC, "mg"],
+    ["Vitamin D", calorieEntry?.vitamins?.vitaminD, "mcg"],
   ];
   return chipSpecs
     .filter(([, value]) => Number.isFinite(value))
