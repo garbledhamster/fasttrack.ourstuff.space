@@ -3427,7 +3427,7 @@ function supportsReasoningEffort(modelId) {
 	const normalized = String(modelId || "")
 		.trim()
 		.toLowerCase();
-	return /^o[134](-|$)/.test(normalized);
+	return /^o[13](-|$)/.test(normalized);
 }
 
 function compareOpenAIModelOptions(left, right) {
@@ -3639,54 +3639,37 @@ async function estimateCaloriesWithAI(noteText) {
 						parameters: {
 							type: "object",
 							properties: {
-								calories: { type: ["number", "null"] },
+								calories: { type: "number" },
 								macros: {
 									type: "object",
 									properties: {
-										protein: { type: ["number", "null"] },
-										carbs: { type: ["number", "null"] },
-										fat: { type: ["number", "null"] },
+										protein: { type: "number" },
+										carbs: { type: "number" },
+										fat: { type: "number" },
 									},
-									required: ["protein", "carbs", "fat"],
 								},
 								micros: {
 									type: "object",
 									properties: {
-										sodium: { type: ["number", "null"] },
-										potassium: { type: ["number", "null"] },
-										calcium: { type: ["number", "null"] },
-										iron: { type: ["number", "null"] },
-										magnesium: { type: ["number", "null"] },
-										zinc: { type: ["number", "null"] },
+										sodium: { type: "number" },
+										potassium: { type: "number" },
+										calcium: { type: "number" },
+										iron: { type: "number" },
+										magnesium: { type: "number" },
+										zinc: { type: "number" },
 									},
-									required: [
-										"sodium",
-										"potassium",
-										"calcium",
-										"iron",
-										"magnesium",
-										"zinc",
-									],
 								},
 								vitamins: {
 									type: "object",
 									properties: {
-										vitaminA: { type: ["number", "null"] },
-										vitaminC: { type: ["number", "null"] },
-										vitaminD: { type: ["number", "null"] },
-										vitaminB6: { type: ["number", "null"] },
-										vitaminB12: { type: ["number", "null"] },
+										vitaminA: { type: "number" },
+										vitaminC: { type: "number" },
+										vitaminD: { type: "number" },
+										vitaminB6: { type: "number" },
+										vitaminB12: { type: "number" },
 									},
-									required: [
-										"vitaminA",
-										"vitaminC",
-										"vitaminD",
-										"vitaminB6",
-										"vitaminB12",
-									],
 								},
 							},
-							required: ["calories", "macros", "micros", "vitamins"],
 						},
 					},
 				},
