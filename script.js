@@ -119,9 +119,8 @@ const CALORIE_VIEWS = [
 ];
 
 const MACRO_FIELDS = Object.freeze(["protein", "carbs", "fat"]);
-const MINERAL_FIELDS = Object.freeze(["sodium", "potassium", "calcium", "iron"]);
+const MICRO_FIELDS = Object.freeze(["sodium", "potassium", "calcium", "iron"]);
 const VITAMIN_FIELDS = Object.freeze(["vitaminC", "vitaminD"]);
-const MICRO_FIELDS = MINERAL_FIELDS;
 const NUTRIENT_TRACKER_DEFINITIONS = Object.freeze([
   { key: "protein", group: "macros", label: "Protein", unit: "g", shortLabel: "P" },
   { key: "carbs", group: "macros", label: "Carbs", unit: "g", shortLabel: "C" },
