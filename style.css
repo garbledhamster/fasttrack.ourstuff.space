@@ -564,6 +564,111 @@ body.bg-slate-950 {
 	color: var(--background-color);
 }
 
+.history-analytics-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 8px;
+}
+
+.history-analytics-card {
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--surface-color) 80%, transparent);
+	padding: 10px 12px;
+}
+
+.history-analytics-label {
+	font-size: 10px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--text-subtle-color);
+}
+
+.history-analytics-value {
+	margin-top: 4px;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--text-color);
+}
+
+.history-analytics-meta {
+	margin-top: 4px;
+	font-size: 11px;
+	color: var(--text-muted-color);
+}
+
+.history-chart-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 8px;
+}
+
+.history-chart-row {
+	display: grid;
+	grid-template-columns: 50px minmax(0, 1fr) 46px;
+	align-items: center;
+	gap: 8px;
+}
+
+.history-chart-row--inactive {
+	opacity: 0.85;
+}
+
+.history-chart-label {
+	font-size: 11px;
+	color: var(--text-muted-color);
+}
+
+.history-chart-track {
+	height: 8px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--surface-muted-color) 80%, transparent);
+	overflow: hidden;
+}
+
+.history-chart-fill {
+	height: 100%;
+	border-radius: inherit;
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--primary-color) 85%, white),
+		var(--secondary-color)
+	);
+}
+
+.history-chart-value {
+	font-size: 11px;
+	color: var(--text-muted-color);
+	text-align: right;
+}
+
+.history-fast-card,
+.recent-fast-card {
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--surface-color) 80%, transparent);
+	padding: 10px 12px;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 8px;
+}
+
+.history-fast-title {
+	font-size: 13px;
+	color: var(--text-color);
+}
+
+.history-fast-subtitle {
+	font-size: 11px;
+	color: var(--text-muted-color);
+}
+
+.history-fast-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
 .calorie-view-chip {
 	border-radius: 999px;
 	border: 1px solid var(--border-color);

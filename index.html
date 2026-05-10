@@ -284,9 +284,17 @@
           </div>
           <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4 space-y-4">
             <div>
+              <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-2">Analytics snapshot</h2>
+              <div id="history-progress-kpis" class="history-analytics-grid"></div>
+            </div>
+            <div>
+              <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-2">History comparison</h2>
+              <div id="history-progress-chart" class="history-chart-grid"></div>
+            </div>
+            <div>
               <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Selected day</h2>
               <div id="day-summary" class="text-sm md:text-xs text-muted mb-2 md:mb-1">No fasts logged</div>
-              <div id="day-fast-list" class="space-y-2 text-sm md:text-xs"></div>
+              <div id="day-fast-list" class="space-y-3 text-sm md:text-xs"></div>
             </div>
           </div>
         </div>
@@ -321,7 +329,7 @@
             <p class="text-sm md:text-xs text-muted">Your latest completed fast sessions.</p>
           </div>
           <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
-            <div id="recent-fast-list" class="space-y-2 text-sm md:text-xs"></div>
+            <div id="recent-fast-list" class="space-y-3 text-sm md:text-xs"></div>
           </div>
         </div>
       </section>
