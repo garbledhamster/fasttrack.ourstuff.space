@@ -3548,6 +3548,7 @@ async function estimateCaloriesWithAI(noteText) {
 		};
 		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
 			requestBody.reasoning_effort = reasoningEffort;
+			requestBody.temperature = 1;
 			resetReasoningSupportToast();
 		} else if (reasoningEffort !== "none") {
 			showReasoningUnsupportedToastOnce();
