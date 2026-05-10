@@ -4555,8 +4555,8 @@ function normalizeSingleParagraph(value, maxChars) {
 	return collapsed.slice(0, maxLength).trimEnd();
 }
 
-function pluralizeWord(count, singular, plural = `${singular}s`) {
-	return Number(count) === 1 ? singular : plural;
+function pluralize(count, singular, pluralWord = `${singular}s`) {
+	return Number(count) === 1 ? singular : pluralWord;
 }
 
 function normalizeTrainerConversationMessageRole(role) {
@@ -5486,6 +5486,8 @@ async function generateAITrainerNoteConversationResponse({
 		showToast("Write a message first");
 		return null;
 	}
+	const normalizedConversationMessages =
+		normalizeTrainerConversationMessages(conversation);
 	const userPayload = JSON.stringify(
 		{
 			coreNote: {
@@ -5493,11 +5495,12 @@ async function generateAITrainerNoteConversationResponse({
 				date: note?.createdAt ? new Date(note.createdAt).toISOString() : null,
 				text: getDisplayNoteText(note) || null,
 			},
-			conversation:
-				normalizeTrainerConversationMessages(conversation).map((entry) => ({
-					role: entry.role,
-					content: entry.content,
-				})) || null,
+			conversation: normalizedConversationMessages.length
+				? normalizedConversationMessages.map((entry) => ({
+						role: entry.role,
+						content: entry.content,
+					}))
+				: null,
 			userMessage: normalizedMessage,
 			fastingSchedule: buildFastingScheduleContext(),
 			activeFast: buildTrainerActiveFastContext(),
@@ -7906,7 +7909,7 @@ function buildNoteCard(note) {
 		response.className = "note-trainer-response";
 		const label = document.createElement("div");
 		label.className = "note-trainer-response-label";
-		label.textContent = `Conversation · ${trainerConversation.length} ${pluralizeWord(trainerConversation.length, "message", "messages")}`;
+		label.textContent = `Conversation · ${trainerConversation.length} ${pluralize(trainerConversation.length, "message")}`;
 		const text = document.createElement("div");
 		text.className = "note-trainer-response-text";
 		text.textContent = `${latestMessage.role === "trainer" ? "Trainer" : "You"}: ${latestMessage.content}`;
