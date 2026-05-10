@@ -437,6 +437,45 @@
                 <span>All notes</span>
               </div>
             </div>
+            <div class="trainer-filter-panel" aria-labelledby="trainer-note-filters-title">
+              <div class="trainer-filter-header">
+                <div>
+                  <div id="trainer-note-filters-title" class="trainer-filter-title">Note filters</div>
+                  <div id="trainer-note-filters-subtitle" class="trainer-filter-subtitle">No filters selected. Trainer can use every note in range.</div>
+                </div>
+                <button id="ai-trainer-clear-filters" type="button" class="trainer-filter-clear">CLEAR FILTERS</button>
+              </div>
+              <div class="trainer-filter-grid" role="group" aria-label="Filter notes sent to trainer">
+                <button type="button" class="trainer-filter-btn" data-trainer-note-filter="trainer">
+                  <span class="trainer-filter-icon">AI</span>
+                  <span class="trainer-filter-copy">
+                    <span class="trainer-filter-label">TRAINER NOTE</span>
+                    <span class="trainer-filter-detail">Prior AI coaching notes</span>
+                  </span>
+                </button>
+                <button type="button" class="trainer-filter-btn" data-trainer-note-filter="user">
+                  <span class="trainer-filter-icon">ME</span>
+                  <span class="trainer-filter-copy">
+                    <span class="trainer-filter-label">USER NOTE</span>
+                    <span class="trainer-filter-detail">Notes you wrote</span>
+                  </span>
+                </button>
+                <button type="button" class="trainer-filter-btn" data-trainer-note-filter="fast">
+                  <span class="trainer-filter-icon">IN</span>
+                  <span class="trainer-filter-copy">
+                    <span class="trainer-filter-label">FAST NOTES</span>
+                    <span class="trainer-filter-detail">Created during a fast</span>
+                  </span>
+                </button>
+                <button type="button" class="trainer-filter-btn" data-trainer-note-filter="nofast">
+                  <span class="trainer-filter-icon">OUT</span>
+                  <span class="trainer-filter-copy">
+                    <span class="trainer-filter-label">NO-FAST NOTES</span>
+                    <span class="trainer-filter-detail">Created outside a fast</span>
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
@@ -450,7 +489,18 @@
         </div>
       </section>
 
-      <section id="tab-settings" class="h-full flex-col gap-4 hidden">
+      <section id="tab-settings" class="notes-drawer hidden">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+          <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <h2 class="text-base md:text-sm font-medium text-default">Settings</h2>
+                <p class="text-sm md:text-xs text-muted">Tune defaults, alerts, AI, theme, and account options.</p>
+              </div>
+              <button id="settings-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
+            </div>
+          </div>
+          <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
         <div class="space-y-3">
           <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Defaults</h2>
           <div>
@@ -630,7 +680,7 @@
               <input id="theme-danger-color" type="color" class="theme-color-input">
             </label>
           </div>
-          <p class="text-xs md:text-[11px] text-subtle">Colors sync across devices when you’re signed in.</p>
+          <p class="text-xs md:text-[11px] text-subtle">Colors sync across devices when you're signed in.</p>
         </div>
 
         <div class="mt-4 space-y-3">
@@ -642,6 +692,8 @@
         <div class="mt-4 space-y-3">
           <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Account</h2>
           <button id="sign-out" type="button" class="w-full py-3 md:py-2.5 rounded-xl button-outline border text-sm md:text-xs font-medium">Sign out</button>
+        </div>
+          </div>
         </div>
       </section>
     </main>
@@ -666,15 +718,6 @@
           </span>
         </button>
 
-        <button type="button" data-tab="notes" data-label="Notes" class="nav-btn flex-1 flex items-center justify-center text-subtle">
-          <span class="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2">
-            <svg class="w-7 h-7 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16 14H8a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2Zm0-4h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2Zm4-6h-3V3a1 1 0 0 0-2 0v1h-2V3a1 1 0 0 0-2 0v1H9V3a1 1 0 0 0-2 0v1H4a1 1 0 0 0-1 1v14a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V5a1 1 0 0 0-1-1Zm-1 15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6h2v1a1 1 0 0 0 2 0V6h2v1a1 1 0 0 0 2 0V6h2v1a1 1 0 0 0 2 0V6h2Z"/>
-            </svg>
-            <span class="hidden md:inline text-xs">Notes</span>
-          </span>
-        </button>
-
         <button type="button" data-tab="history" data-label="History" class="nav-btn flex-1 flex items-center justify-center text-subtle">
           <span class="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2">
             <svg class="w-7 h-7 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
@@ -682,6 +725,15 @@
               <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/>
             </svg>
             <span class="hidden md:inline text-xs">History</span>
+          </span>
+        </button>
+
+        <button type="button" data-tab="notes" data-label="Notes" class="nav-btn flex-1 flex items-center justify-center text-subtle">
+          <span class="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2">
+            <svg class="w-7 h-7 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 14H8a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2Zm0-4h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2Zm4-6h-3V3a1 1 0 0 0-2 0v1h-2V3a1 1 0 0 0-2 0v1H9V3a1 1 0 0 0-2 0v1H4a1 1 0 0 0-1 1v14a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V5a1 1 0 0 0-1-1Zm-1 15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6h2v1a1 1 0 0 0 2 0V6h2v1a1 1 0 0 0 2 0V6h2v1a1 1 0 0 0 2 0V6h2Z"/>
+            </svg>
+            <span class="hidden md:inline text-xs">Notes</span>
           </span>
         </button>
 
@@ -757,10 +809,10 @@
         </div>
       </div>
       <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
-      <div class="grid gap-3 md:grid-cols-2">
-        <div>
-          <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-gender-input">Gender</label>
-          <select id="calorie-gender-input" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
+      <div class="profile-details-grid">
+        <div class="profile-field">
+          <label class="profile-field-label" for="calorie-gender-input">Gender</label>
+          <select id="calorie-gender-input" class="profile-control surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
             <option value="">Select gender</option>
             <option value="female">Female</option>
             <option value="male">Male</option>
@@ -768,9 +820,9 @@
             <option value="other">Other</option>
           </select>
         </div>
-        <div>
-          <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-fitness-input">Fitness level</label>
-          <select id="calorie-fitness-input" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
+        <div class="profile-field">
+          <label class="profile-field-label" for="calorie-fitness-input">Fitness level</label>
+          <select id="calorie-fitness-input" class="profile-control surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
             <option value="">Select level</option>
             <option value="sedentary">Sedentary</option>
             <option value="light">Lightly active</option>
@@ -779,45 +831,45 @@
             <option value="athlete">Athlete</option>
           </select>
         </div>
-        <div>
-          <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-age-input">Age</label>
-          <input id="calorie-age-input" type="number" min="0" inputmode="numeric" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 32">
+        <div class="profile-field">
+          <label class="profile-field-label" for="calorie-age-input">Age</label>
+          <input id="calorie-age-input" type="number" min="0" inputmode="numeric" class="profile-control surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 32">
         </div>
-        <div>
-          <label id="calorie-height-label" class="block text-sm md:text-xs text-muted mb-1" for="calorie-height-input">Height</label>
+        <div class="profile-field">
+          <label id="calorie-weight-label" class="profile-field-label" for="calorie-weight-input">Current weight</label>
+          <input id="calorie-weight-input" type="number" min="0" step="0.1" inputmode="decimal" class="profile-control surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 72.5 kg">
+          <p id="calorie-weight-subtext" class="profile-field-help">Current weight in kilograms.</p>
+        </div>
+        <div class="profile-field profile-field--wide">
+          <label id="calorie-height-label" class="profile-field-label" for="calorie-height-input">Height</label>
           <div id="calorie-height-metric-wrap">
-            <input id="calorie-height-input" type="number" min="0" inputmode="decimal" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 170 cm">
+            <input id="calorie-height-input" type="number" min="0" inputmode="decimal" class="profile-control surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 170 cm">
           </div>
-          <div id="calorie-height-imperial-wrap" class="grid grid-cols-2 gap-2 hidden">
-            <div>
-              <label class="block text-xs md:text-[11px] text-subtle mb-1" for="calorie-height-feet-select">Feet</label>
-              <select id="calorie-height-feet-select" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"></select>
+          <div id="calorie-height-imperial-wrap" class="profile-height-grid hidden">
+            <div class="profile-height-part">
+              <label class="profile-subfield-label" for="calorie-height-feet-select">Feet</label>
+              <select id="calorie-height-feet-select" class="profile-control surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"></select>
             </div>
-            <div>
-              <label class="block text-xs md:text-[11px] text-subtle mb-1" for="calorie-height-inches-select">Inches</label>
-              <select id="calorie-height-inches-select" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"></select>
+            <div class="profile-height-part">
+              <label class="profile-subfield-label" for="calorie-height-inches-select">Inches</label>
+              <select id="calorie-height-inches-select" class="profile-control surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"></select>
             </div>
           </div>
-          <p id="calorie-height-subtext" class="text-xs md:text-[11px] text-subtle mt-1">Height in centimeters.</p>
+          <p id="calorie-height-subtext" class="profile-field-help">Height in centimeters.</p>
         </div>
-        <div>
-          <label id="calorie-weight-label" class="block text-sm md:text-xs text-muted mb-1" for="calorie-weight-input">Current weight</label>
-          <input id="calorie-weight-input" type="number" min="0" step="0.1" inputmode="decimal" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 72.5 kg">
-          <p id="calorie-weight-subtext" class="text-xs md:text-[11px] text-subtle mt-1">Current weight in kilograms.</p>
-        </div>
-        <div id="openai-trainer-instructions-panel" class="md:col-span-2">
-          <label class="block text-sm md:text-xs text-muted mb-1" for="openai-trainer-instructions">AI Trainer Instructions</label>
-          <textarea id="openai-trainer-instructions" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Share nutrition preferences, dietary needs, injuries, limitations, allergies, and coaching style."></textarea>
-          <p class="text-xs md:text-[11px] text-subtle mt-1">
+        <div id="openai-trainer-instructions-panel" class="profile-field profile-field--wide">
+          <label class="profile-field-label" for="openai-trainer-instructions">AI Trainer Instructions</label>
+          <textarea id="openai-trainer-instructions" rows="4" class="profile-textarea surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Share nutrition preferences, dietary needs, injuries, limitations, allergies, and coaching style."></textarea>
+          <p class="profile-field-help">
             These instructions are sent to OpenAI only when you use AI features.
             FastTrack stores only what you enter, encrypted and secured in your account,
             and decrypts it only with your password.
           </p>
         </div>
-        <div id="byo-trainer-instructions-panel" class="md:col-span-2 hidden">
-          <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-trainer-instructions">AI Trainer Instructions</label>
-          <textarea id="byo-llm-trainer-instructions" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Share nutrition preferences, dietary needs, injuries, limitations, allergies, and coaching style."></textarea>
-          <p class="text-xs md:text-[11px] text-subtle mt-1">
+        <div id="byo-trainer-instructions-panel" class="profile-field profile-field--wide hidden">
+          <label class="profile-field-label" for="byo-llm-trainer-instructions">AI Trainer Instructions</label>
+          <textarea id="byo-llm-trainer-instructions" rows="4" class="profile-textarea surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Share nutrition preferences, dietary needs, injuries, limitations, allergies, and coaching style."></textarea>
+          <p class="profile-field-help">
             These instructions are sent to your BYO endpoint only when you use AI features.
             FastTrack stores only what you enter, encrypted and secured in your account,
             and decrypts it only with your password.

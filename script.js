@@ -34,6 +34,11 @@ const DEVICE_KEY_ID = "device-wrap-key";
 const RING_CIRC = 2 * Math.PI * 80;
 const ENCRYPTION_VERSION = 1;
 const PBKDF2_ITERATIONS = 310000;
+const UI_BULLET_SEPARATOR = " \u2022 ";
+const UI_MIDDOT_SEPARATOR = " \u00b7 ";
+const UI_ARROW_SEPARATOR = " \u2192 ";
+const UI_EM_DASH = "\u2014";
+const UI_ELLIPSIS = "\u2026";
 const _NOTES_SCHEMA = Object.freeze({
 	text: "",
 	trainerResponse: "",
@@ -387,7 +392,7 @@ let navHoldTimer = null;
 let navHoldShown = false;
 let suppressNavClickEl = null;
 
-// âœ… NEW: Notes overlay state (opens above other tabs)
+// Notes overlay state (opens above other tabs)
 let currentTab = "timer";
 let _lastNonNotesTab = "timer";
 let ringEmojiTypeId = null;
@@ -403,6 +408,7 @@ let notesBackdrop = null;
 let bodyOverflowBeforeNotes = null;
 let notesSwipeHandlersAttached = false;
 let aiTrainerNotesRangeOverride = null;
+let aiTrainerNoteFilterOverride = [];
 let aiTrainerNoteAbortController = null;
 let historyProgressOverlayOpen = false;
 let historyProgressPortal = null;
@@ -422,6 +428,9 @@ let calorieTargetDrawerCloseTimeout = null;
 let calorieGoalOverlayOpen = false;
 let calorieGoalPortal = null;
 let calorieGoalDrawerCloseTimeout = null;
+let settingsOverlayOpen = false;
+let settingsPortal = null;
+let settingsDrawerCloseTimeout = null;
 let bodyOverflowBeforeSecondaryDrawers = null;
 let secondaryDrawerEscapeHandlerAttached = false;
 let noteEditorSwipeHandlersAttached = false;
@@ -578,7 +587,7 @@ function normalizeFastingHourly(data) {
 		.filter((entry) => entry && Number.isFinite(Number(entry.hour)))
 		.map((entry) => ({
 			hour: Number(entry.hour),
-			emoji: typeof entry.emoji === "string" ? entry.emoji : "â³",
+			emoji: typeof entry.emoji === "string" ? entry.emoji : "\u23f3",
 			label:
 				typeof entry.label === "string" ? entry.label : `Hour ${entry.hour}`,
 			actions: Array.isArray(entry.actions)
@@ -603,7 +612,7 @@ function normalizeCalorieTips(data) {
 				? goal.tips
 						.filter((tip) => tip && typeof tip === "object")
 						.map((tip) => ({
-							emoji: typeof tip.emoji === "string" ? tip.emoji : "âœ¨",
+							emoji: typeof tip.emoji === "string" ? tip.emoji : "\u2728",
 							title: typeof tip.title === "string" ? tip.title : "Quick tip",
 							detail: typeof tip.detail === "string" ? tip.detail : "",
 						}))
@@ -1456,8 +1465,12 @@ function updateNoteEditorMeta() {
 	const openedLabel = editingNoteOpenedAt
 		? `Opened ${formatTimeShort(new Date(editingNoteOpenedAt))}`
 		: null;
-	const timeLabel = [createdLabel, openedLabel].filter(Boolean).join(" â€¢ ");
-	dateEl.textContent = timeLabel ? `${dateLabel} â€¢ ${timeLabel}` : dateLabel;
+	const timeLabel = [createdLabel, openedLabel]
+		.filter(Boolean)
+		.join(UI_BULLET_SEPARATOR);
+	dateEl.textContent = timeLabel
+		? `${dateLabel}${UI_BULLET_SEPARATOR}${timeLabel}`
+		: dateLabel;
 
 	const isActive = Boolean(editingNoteContext?.wasActive);
 	const elapsedMsAtNote = editingNoteContext?.elapsedMsAtNote;
@@ -1469,7 +1482,7 @@ function updateNoteEditorMeta() {
 	} else if (isActive) {
 		const typeLabel = editingNoteContext?.fastTypeLabel || "fast";
 		const elapsedLabel = hasElapsed
-			? ` â€¢ ${formatElapsedShort(elapsedMsAtNote)} in`
+			? `${UI_BULLET_SEPARATOR}${formatElapsedShort(elapsedMsAtNote)} in`
 			: "";
 		badge.textContent = `Active ${typeLabel}${elapsedLabel}`;
 		badge.classList.remove("is-muted");
@@ -2280,6 +2293,7 @@ function initAuthListener() {
 			try {
 				await completeAuthFlow();
 			} catch (err) {
+				console.error("Failed to complete auth state restore:", err);
 				if (
 					err?.message === "missing-password" ||
 					err?.message === "decrypt-failed"
@@ -2500,6 +2514,8 @@ async function handleAuthSubmit(e) {
 	}
 
 	try {
+		pendingPassword = password;
+		authRememberChoice = remember;
 		await setPersistence(
 			auth,
 			remember ? browserLocalPersistence : browserSessionPersistence,
@@ -2529,8 +2545,6 @@ async function handleAuthSubmit(e) {
 			await signInWithEmailAndPassword(auth, email, password);
 		}
 
-		pendingPassword = password;
-		authRememberChoice = remember;
 		if (auth.currentUser && !remember)
 			clearWrappedKeyStorage(auth.currentUser.uid);
 
@@ -2538,14 +2552,19 @@ async function handleAuthSubmit(e) {
 			try {
 				await completeAuthFlow();
 			} catch (err) {
+				console.error("Failed to complete sign-in flow:", err);
 				if (err?.message === "decrypt-failed") {
 					showReauthPrompt("Incorrect password. Please try again.");
 					return;
 				}
-				showReauthPrompt("We couldn't unlock your data. Please try again.");
+				showReauthPrompt(
+					"We couldn't finish loading the app. Please refresh and try again.",
+				);
 			}
 		}
 	} catch (err) {
+		pendingPassword = null;
+		authRememberChoice = null;
 		errorEl.textContent =
 			err?.message || "Unable to authenticate. Please try again.";
 		errorEl.classList.remove("hidden");
@@ -2585,6 +2604,8 @@ async function handlePasswordReset() {
 async function completeAuthFlow() {
 	if (auth.currentUser?.emailVerified) await markUserVerified(auth.currentUser);
 	await loadAppState();
+	pendingPassword = null;
+	authRememberChoice = null;
 	startStateListener(auth.currentUser.uid);
 	startNotesListener(auth.currentUser.uid);
 	if (!appInitialized) {
@@ -2611,7 +2632,7 @@ async function loadAppState() {
 	selectedDayKey = formatDateKey(new Date());
 }
 
-// âœ… NEW: Ensure Notes drawer is an overlay (fixed, above tabs) and closes on outside click
+// Ensure Notes drawer is an overlay (fixed, above tabs) and closes on outside click
 function ensureNotesOverlay() {
 	if (notesPortal) return;
 
@@ -2940,6 +2961,23 @@ function getSecondaryDrawerMeta(drawerType) {
 			},
 			button: $("calorie-goal-drawer-btn"),
 		},
+		settings: {
+			drawer: $("tab-settings"),
+			getPortal: () => settingsPortal,
+			setPortal: (portal) => {
+				settingsPortal = portal;
+			},
+			getOpen: () => settingsOverlayOpen,
+			setOpen: (open) => {
+				settingsOverlayOpen = open;
+			},
+			getCloseTimeout: () => settingsDrawerCloseTimeout,
+			setCloseTimeout: (timeout) => {
+				settingsDrawerCloseTimeout = timeout;
+			},
+			button: document.querySelector('nav .nav-btn[data-tab="settings"]'),
+			navButton: true,
+		},
 	};
 	return drawerMap[drawerType] || null;
 }
@@ -2951,7 +2989,8 @@ function restoreSecondaryDrawerBodyOverflow() {
 		recentFastsOverlayOpen ||
 		nutritionProgressOverlayOpen ||
 		calorieTargetOverlayOpen ||
-		calorieGoalOverlayOpen
+		calorieGoalOverlayOpen ||
+		settingsOverlayOpen
 	)
 		return;
 	if (bodyOverflowBeforeSecondaryDrawers !== null) {
@@ -2982,6 +3021,10 @@ function openSecondaryDrawer(drawerType, onOpen) {
 	drawerMeta.setOpen(true);
 	if (drawerMeta.button)
 		drawerMeta.button.setAttribute("aria-expanded", "true");
+	if (drawerMeta.navButton && drawerMeta.button) {
+		drawerMeta.button.classList.add("nav-btn-active", "text-default");
+		drawerMeta.button.classList.remove("text-subtle");
+	}
 	if (typeof onOpen === "function") onOpen();
 }
 
@@ -2992,6 +3035,10 @@ function closeSecondaryDrawer(drawerType, forceImmediate = false) {
 			drawerMeta.setOpen(false);
 			if (drawerMeta.button)
 				drawerMeta.button.setAttribute("aria-expanded", "false");
+			if (drawerMeta.navButton && drawerMeta.button) {
+				drawerMeta.button.classList.remove("nav-btn-active", "text-default");
+				drawerMeta.button.classList.add("text-subtle");
+			}
 		}
 		restoreSecondaryDrawerBodyOverflow();
 		return;
@@ -3000,6 +3047,10 @@ function closeSecondaryDrawer(drawerType, forceImmediate = false) {
 	drawerMeta.setOpen(false);
 	if (drawerMeta.button)
 		drawerMeta.button.setAttribute("aria-expanded", "false");
+	if (drawerMeta.navButton && drawerMeta.button) {
+		drawerMeta.button.classList.remove("nav-btn-active", "text-default");
+		drawerMeta.button.classList.add("text-subtle");
+	}
 	drawerMeta.drawer.classList.remove("is-open");
 
 	if (forceImmediate) {
@@ -3077,6 +3128,16 @@ function closeCalorieGoalDrawer(forceImmediate = false) {
 	closeSecondaryDrawer("calorieGoal", forceImmediate);
 }
 
+function openSettingsDrawer() {
+	openSecondaryDrawer("settings", () => {
+		renderSettings();
+	});
+}
+
+function closeSettingsDrawer(forceImmediate = false) {
+	closeSecondaryDrawer("settings", forceImmediate);
+}
+
 function closeSecondaryDrawers(forceImmediate = false, exceptType = null) {
 	const drawerTypes = [
 		"history",
@@ -3085,6 +3146,7 @@ function closeSecondaryDrawers(forceImmediate = false, exceptType = null) {
 		"nutrition",
 		"calorieTarget",
 		"calorieGoal",
+		"settings",
 	];
 	drawerTypes.forEach((drawerType) => {
 		if (drawerType === exceptType) return;
@@ -3104,11 +3166,18 @@ function initTabs() {
 
 			const tab = btn.dataset.tab;
 
-			// âœ… Notes is now an overlay, not a real tab switch
+			// Notes is now an overlay, not a real tab switch
 			if (tab === "notes") {
 				closeSecondaryDrawers(true);
 				if (notesOverlayOpen) closeNotesDrawer();
 				else openNotesDrawer();
+				return;
+			}
+
+			if (tab === "settings") {
+				if (notesOverlayOpen) closeNotesDrawer(true);
+				if (settingsOverlayOpen) closeSettingsDrawer();
+				else openSettingsDrawer();
 				return;
 			}
 
@@ -3128,7 +3197,7 @@ function switchTab(tab) {
 	if (tab !== "notes") _lastNonNotesTab = tab;
 	closeSecondaryDrawers(true);
 
-	["timer", "history", "calories", "settings"].forEach((id) => {
+	["timer", "history", "calories"].forEach((id) => {
 		const section = $(`tab-${id}`);
 		const btn = document.querySelector(`nav .nav-btn[data-tab="${id}"]`);
 		const active = id === tab;
@@ -3149,7 +3218,6 @@ function switchTab(tab) {
 		renderNotes();
 	}
 	if (tab === "calories") renderCalories();
-	if (tab === "settings") renderSettings();
 
 	renderFastButton();
 	renderCalorieButton();
@@ -3393,7 +3461,7 @@ function formatNutritionInlineSummary(dateKey = formatDateKey(new Date())) {
 		.map(
 			([label, value, unit]) => `${label} ${formatNutrientValue(value, unit)}`,
 		);
-	return bits.length ? bits.join(" â€¢ ") : "";
+	return bits.length ? bits.join(UI_BULLET_SEPARATOR) : "";
 }
 
 function renderNutritionTracker() {
@@ -3414,7 +3482,7 @@ function renderNutritionTracker() {
 			const goalValue = goals[group]?.[key];
 			goalEl.textContent = Number.isFinite(goalValue)
 				? `Goal ${formatNutrientValue(goalValue, unit)}`
-				: "Goal â€”";
+				: `Goal ${UI_EM_DASH}`;
 		}
 	});
 
@@ -3472,13 +3540,13 @@ function renderCalorieSummary() {
 	const nutritionSummary = formatNutritionInlineSummary(dateKey);
 	if (!target) {
 		summary.textContent = nutritionSummary
-			? `Set a target to track remaining calories â€¢ ${nutritionSummary}`
+			? `Set a target to track remaining calories${UI_BULLET_SEPARATOR}${nutritionSummary}`
 			: "Set a target to track remaining calories.";
 		return;
 	}
 	const remaining = Math.max(0, target - consumed);
 	summary.textContent = nutritionSummary
-		? `${formatCalories(remaining)} calories left today â€¢ ${nutritionSummary}`
+		? `${formatCalories(remaining)} calories left today${UI_BULLET_SEPARATOR}${nutritionSummary}`
 		: `${formatCalories(remaining)} calories left today.`;
 }
 
@@ -4182,11 +4250,90 @@ const AI_TRAINER_NOTE_TAGS = Object.freeze([
 	"ai_trainer",
 	"trainer_note",
 ]);
+const TRAINER_NOTE_FILTERS = Object.freeze({
+	trainer: {
+		id: "trainer",
+		group: "source",
+		label: "TRAINER NOTE",
+		matches: (note) => isAITrainerNote(note),
+	},
+	user: {
+		id: "user",
+		group: "source",
+		label: "USER NOTE",
+		matches: (note) => !isAITrainerNote(note),
+	},
+	fast: {
+		id: "fast",
+		group: "context",
+		label: "FAST NOTES",
+		matches: (note) => Boolean(note.fastContext?.wasActive),
+	},
+	nofast: {
+		id: "nofast",
+		group: "context",
+		label: "NO-FAST NOTES",
+		matches: (note) => !note.fastContext?.wasActive,
+	},
+});
+const TRAINER_NOTE_FILTER_GROUPS = Object.freeze(["source", "context"]);
 
 function normalizeOpenAINotesRange(value) {
 	const n = Number(value);
 	if (!Number.isFinite(n) || n < 0) return 0;
 	return Math.min(Math.round(n), OPENAI_NOTES_RANGE_MAX);
+}
+
+function normalizeTrainerNoteFilters(value) {
+	const raw = Array.isArray(value) ? value : [];
+	return raw.filter(
+		(id, index) =>
+			TRAINER_NOTE_FILTERS[id] && raw.indexOf(id) === index,
+	);
+}
+
+function getAITrainerNoteFilters() {
+	return normalizeTrainerNoteFilters(aiTrainerNoteFilterOverride);
+}
+
+function setAITrainerNoteFilters(filters) {
+	aiTrainerNoteFilterOverride = normalizeTrainerNoteFilters(filters);
+	renderAITrainerNoteFilters();
+}
+
+function toggleAITrainerNoteFilter(filterId) {
+	if (!TRAINER_NOTE_FILTERS[filterId]) return;
+	const selected = new Set(getAITrainerNoteFilters());
+	if (selected.has(filterId)) {
+		selected.delete(filterId);
+	} else {
+		selected.add(filterId);
+	}
+	setAITrainerNoteFilters([...selected]);
+}
+
+function noteMatchesTrainerFilters(note, filters = getAITrainerNoteFilters()) {
+	const normalizedFilters = normalizeTrainerNoteFilters(filters);
+	if (!normalizedFilters.length) return true;
+	return TRAINER_NOTE_FILTER_GROUPS.every((group) => {
+		const groupFilters = normalizedFilters.filter(
+			(filterId) => TRAINER_NOTE_FILTERS[filterId]?.group === group,
+		);
+		if (!groupFilters.length) return true;
+		return groupFilters.some((filterId) =>
+			TRAINER_NOTE_FILTERS[filterId].matches(note),
+		);
+	});
+}
+
+function getTrainerNoteFilterSummary(filters = getAITrainerNoteFilters()) {
+	const normalizedFilters = normalizeTrainerNoteFilters(filters);
+	if (!normalizedFilters.length)
+		return "No filters selected. Trainer can use every note in range.";
+	const labels = normalizedFilters.map(
+		(filterId) => TRAINER_NOTE_FILTERS[filterId].label,
+	);
+	return `Using ${labels.join(", ").toLowerCase()} from the selected range.`;
 }
 
 function getGlobalTrainerContextRange() {
@@ -4248,16 +4395,20 @@ function getTrainerRangeCutoff(range, now = Date.now()) {
 	return null;
 }
 
-function getNotesForTrainer(rangeOverride = null) {
+function getNotesForTrainer(rangeOverride = null, filtersOverride = null) {
 	const range =
 		rangeOverride === null
 			? getTrainerContextRange()
 			: normalizeOpenAINotesRange(rangeOverride);
 	if (range === 0 || !notes.length) return [];
+	const filters =
+		filtersOverride === null
+			? getAITrainerNoteFilters()
+			: normalizeTrainerNoteFilters(filtersOverride);
 	const now = Date.now();
-	const sorted = [...notes].sort(
-		(a, b) => (b.createdAt || 0) - (a.createdAt || 0),
-	);
+	const sorted = [...notes]
+		.filter((note) => noteMatchesTrainerFilters(note, filters))
+		.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 	if (range >= 1 && range <= OPENAI_NOTES_LAST_COUNT_MAX) {
 		return sorted.slice(0, range);
 	}
@@ -4616,7 +4767,8 @@ function buildTrainerContinuityContext(rangeOverride = null) {
 		rangeOverride === null
 			? getTrainerContextRange()
 			: normalizeOpenAINotesRange(rangeOverride);
-	const trainerNotes = getNotesForTrainer(range).map((note) => ({
+	const trainerNoteFilters = getAITrainerNoteFilters();
+	const trainerNotes = getNotesForTrainer(range, trainerNoteFilters).map((note) => ({
 		date: note.createdAt ? new Date(note.createdAt).toISOString() : null,
 		source: note.metadata?.source || "user",
 		isAITrainerNote: isAITrainerNote(note),
@@ -4631,6 +4783,9 @@ function buildTrainerContinuityContext(rangeOverride = null) {
 	);
 	return {
 		rangeLabel: OPENAI_NOTES_RANGE_LABELS[range],
+		noteFilters: trainerNoteFilters.length
+			? trainerNoteFilters.map((filterId) => TRAINER_NOTE_FILTERS[filterId].label)
+			: null,
 		notes: trainerNotes.length ? trainerNotes : null,
 		previousAITrainerNotes: previousAITrainerNotes.length
 			? previousAITrainerNotes
@@ -4740,7 +4895,7 @@ async function recommendGoalPlanWithAI() {
 		"When goal is lose, maintain, or gain, make dailyTarget reflect that goal plus the user's instructions, journal notes, fasting schedule, and food preferences.",
 		"Respect the user instructions and account for dietary needs, injuries, limitations, fasting schedule, and completed fasting history.",
 		trainerContext.notes || trainerContext.completedFasts
-			? "The user has shared journal notes â€” use them to refine your recommendations."
+			? "The user has shared journal notes - use them to refine your recommendations."
 			: "",
 		"Use trainerContext.completedFasts and activeFast when present to account for completed and current fasts.",
 		"Return ONLY valid JSON in this exact shape:",
@@ -5010,6 +5165,7 @@ function initButtons() {
 	);
 	$("calorie-target-close").addEventListener("click", closeCalorieTargetDrawer);
 	$("calorie-goal-close").addEventListener("click", closeCalorieGoalDrawer);
+	$("settings-close").addEventListener("click", closeSettingsDrawer);
 
 	$("llm-provider-openai").addEventListener("change", (event) => {
 		if (!event.target.checked) return;
@@ -5145,17 +5301,25 @@ function initButtons() {
 		void saveState();
 	});
 
-	$("openai-trainer-instructions").addEventListener("change", (event) => {
-		state.settings.openaiTrainerInstructions = String(event.target.value || "");
-		void saveState();
-	});
-	$("byo-llm-trainer-instructions").addEventListener("change", (event) => {
-		state.settings.byoLlm = normalizeByoLlmSettings({
-			...state.settings.byoLlm,
-			trainerInstructions: String(event.target.value || ""),
+	const openaiTrainerInstructions = $("openai-trainer-instructions");
+	if (openaiTrainerInstructions) {
+		openaiTrainerInstructions.addEventListener("change", (event) => {
+			state.settings.openaiTrainerInstructions = String(
+				event.target.value || "",
+			);
+			void saveState();
 		});
-		void saveState();
-	});
+	}
+	const byoTrainerInstructions = $("byo-llm-trainer-instructions");
+	if (byoTrainerInstructions) {
+		byoTrainerInstructions.addEventListener("change", (event) => {
+			state.settings.byoLlm = normalizeByoLlmSettings({
+				...state.settings.byoLlm,
+				trainerInstructions: String(event.target.value || ""),
+			});
+			void saveState();
+		});
+	}
 
 	$("openai-notes-range").addEventListener("input", (event) => {
 		state.settings.openaiNotesRange = normalizeOpenAINotesRange(
@@ -5311,6 +5475,17 @@ function initButtons() {
 		"change",
 		updateAITrainerNotesRangeOverride,
 	);
+	document.querySelectorAll("[data-trainer-note-filter]").forEach((button) => {
+		button.addEventListener("click", () => {
+			toggleAITrainerNoteFilter(button.dataset.trainerNoteFilter);
+		});
+	});
+	const clearTrainerNoteFilters = $("ai-trainer-clear-filters");
+	if (clearTrainerNoteFilters) {
+		clearTrainerNoteFilters.addEventListener("click", () => {
+			setAITrainerNoteFilters([]);
+		});
+	}
 	$("ai-trainer-note-btn").addEventListener("click", async () => {
 		const button = $("ai-trainer-note-btn");
 		if (aiTrainerNoteAbortController) {
@@ -5594,17 +5769,26 @@ function renderSettings() {
 		"hidden",
 		llmProvider !== "byo",
 	);
-	$("openai-trainer-instructions-panel").classList.toggle(
-		"hidden",
-		llmProvider !== "openai",
-	);
-	$("byo-trainer-instructions-panel").classList.toggle(
-		"hidden",
-		llmProvider !== "byo",
-	);
+	const openaiTrainerInstructionsPanel = $("openai-trainer-instructions-panel");
+	if (openaiTrainerInstructionsPanel) {
+		openaiTrainerInstructionsPanel.classList.toggle(
+			"hidden",
+			llmProvider !== "openai",
+		);
+	}
+	const byoTrainerInstructionsPanel = $("byo-trainer-instructions-panel");
+	if (byoTrainerInstructionsPanel) {
+		byoTrainerInstructionsPanel.classList.toggle(
+			"hidden",
+			llmProvider !== "byo",
+		);
+	}
 	$("openai-api-key").value = state.settings.openaiApiKey || "";
-	$("openai-trainer-instructions").value =
-		state.settings.openaiTrainerInstructions || "";
+	const openaiTrainerInstructions = $("openai-trainer-instructions");
+	if (openaiTrainerInstructions) {
+		openaiTrainerInstructions.value =
+			state.settings.openaiTrainerInstructions || "";
+	}
 	$("byo-llm-api-url").value = byoLlm.apiUrl;
 	$("byo-llm-api-key").value = byoLlm.apiKey;
 	$("byo-llm-model").value = byoLlm.model;
@@ -5612,7 +5796,10 @@ function renderSettings() {
 	$("byo-llm-max-tokens").value = String(byoLlm.maxCompletionTokens);
 	$("byo-llm-temperature").value = String(byoLlm.temperature);
 	$("byo-llm-headers").value = byoLlm.headersJson;
-	$("byo-llm-trainer-instructions").value = byoLlm.trainerInstructions;
+	const byoTrainerInstructions = $("byo-llm-trainer-instructions");
+	if (byoTrainerInstructions) {
+		byoTrainerInstructions.value = byoLlm.trainerInstructions;
+	}
 	const notesRangeSlider = $("openai-notes-range");
 	if (notesRangeSlider) {
 		const rangeVal = normalizeOpenAINotesRange(state.settings.openaiNotesRange);
@@ -5781,7 +5968,7 @@ function renderRingEmojis(type, size) {
 
 	const milestones = Array.isArray(type.milestones) ? type.milestones : [];
 	if (!milestones.length || !size) {
-		title.textContent = "Tap an orb to see whatâ€™s happening";
+		title.textContent = "Tap an orb to see what's happening";
 		detail.textContent = "";
 		return;
 	}
@@ -5817,7 +6004,7 @@ function renderRingEmojis(type, size) {
 		);
 		updateRingEmojiPanel(type, selected);
 	} else {
-		title.textContent = "Tap an orb to see whatâ€™s happening";
+		title.textContent = "Tap an orb to see what's happening";
 		detail.textContent = `${type.label} milestones wrap the ring.`;
 	}
 
@@ -5843,12 +6030,12 @@ function updateRingEmojiPanel(type, milestone) {
 	if (!title || !detail) return;
 
 	if (!milestone) {
-		title.textContent = "Tap an orb to see whatâ€™s happening";
+		title.textContent = "Tap an orb to see what's happening";
 		detail.textContent = `${type.label} milestones wrap the ring.`;
 		return;
 	}
 
-	title.textContent = `Hour ${milestone.hour} Â· ${milestone.label}`;
+	title.textContent = `Hour ${milestone.hour}${UI_MIDDOT_SEPARATOR}${milestone.label}`;
 	detail.textContent = ringEmojiSelectionDetail ?? milestone.detail;
 }
 
@@ -6021,8 +6208,8 @@ function trackMilestoneProgress(type) {
 
 function renderTimerMetaIdle() {
 	const _type = getTypeById(selectedFastTypeId);
-	$("meta-start-btn").textContent = "â€”";
-	$("meta-end").textContent = "â€”";
+	$("meta-start-btn").textContent = UI_EM_DASH;
+	$("meta-end").textContent = UI_EM_DASH;
 }
 
 async function onAlertsButton() {
@@ -6047,7 +6234,7 @@ async function onAlertsButton() {
 		renderAlertsPill();
 		await sendNotification(
 			"Alerts enabled",
-			"Youâ€™ll be notified when your fast ends.",
+			"You'll be notified when your fast ends.",
 		);
 		showToast("Alerts enabled");
 		return;
@@ -6060,7 +6247,7 @@ async function onAlertsButton() {
 	if (state.settings.alertsEnabled) {
 		await sendNotification(
 			"Alerts enabled",
-			"Youâ€™ll be notified when your fast ends.",
+			"You'll be notified when your fast ends.",
 		);
 		showToast("Alerts enabled");
 	} else {
@@ -6148,7 +6335,7 @@ function handleAlerts() {
 		if (now - last >= 3600000) {
 			sendNotification(
 				"Extra hour fasted",
-				"Youâ€™re past your target. Break your fast when ready.",
+				"You're past your target. Break your fast when ready.",
 			);
 			state.reminders.lastHourlyAt = now;
 			void saveState();
@@ -6627,7 +6814,7 @@ function renderDayDetails() {
 		return;
 	}
 
-	const SUMMARY_SEPARATOR = " â€¢ ";
+	const SUMMARY_SEPARATOR = UI_BULLET_SEPARATOR;
 	const dayNoteCalories = getNoteCaloriesForDateKey(selectedDayKey);
 	const calorieSummary =
 		Number.isFinite(dayNoteCalories) && dayNoteCalories > 0
@@ -6664,14 +6851,14 @@ function renderDayDetails() {
 		const label = type ? type.label : "Custom";
 		const durationHours = resolveDurationHours(e, displayStart, displayEnd);
 		title.textContent = e.isActive
-			? `Active â€¢ ${label} fast`
-			: `${label} â€¢ ${durationHours.toFixed(1)}h`;
+			? `Active${UI_BULLET_SEPARATOR}${label} fast`
+			: `${label}${UI_BULLET_SEPARATOR}${durationHours.toFixed(1)}h`;
 
 		const time = document.createElement("div");
 		time.className = "history-fast-subtitle";
 		const timeLabel = spansMultipleDays
-			? `${formatDateTimeLong(new Date(actualStartTs))} â†’ ${formatDateTimeLong(new Date(displayEnd))}`
-			: `${formatTimeShort(new Date(displayStart))} â†’ ${formatTimeShort(new Date(displayEnd))}`;
+			? `${formatDateTimeLong(new Date(actualStartTs))}${UI_ARROW_SEPARATOR}${formatDateTimeLong(new Date(displayEnd))}`
+			: `${formatTimeShort(new Date(displayStart))}${UI_ARROW_SEPARATOR}${formatTimeShort(new Date(displayEnd))}`;
 		time.textContent = e.isActive ? `${timeLabel} (in progress)` : timeLabel;
 
 		row.appendChild(title);
@@ -6742,6 +6929,23 @@ function renderAITrainerNotesRangeOverride() {
 	const range = getAITrainerNotesRangeOverride();
 	slider.value = range;
 	label.textContent = OPENAI_NOTES_RANGE_LABELS[range];
+	renderAITrainerNoteFilters();
+}
+
+function renderAITrainerNoteFilters() {
+	const selectedFilters = getAITrainerNoteFilters();
+	const selected = new Set(selectedFilters);
+	document.querySelectorAll("[data-trainer-note-filter]").forEach((button) => {
+		const filterId = button.dataset.trainerNoteFilter;
+		const isActive = selected.has(filterId);
+		button.classList.toggle("is-active", isActive);
+		button.setAttribute("aria-pressed", isActive ? "true" : "false");
+	});
+	const clearButton = $("ai-trainer-clear-filters");
+	if (clearButton) clearButton.disabled = selectedFilters.length === 0;
+	const subtitle = $("trainer-note-filters-subtitle");
+	if (subtitle)
+		subtitle.textContent = getTrainerNoteFilterSummary(selectedFilters);
 }
 
 function renderHistoryNotes() {
@@ -6752,7 +6956,7 @@ function renderHistoryNotes() {
 	list.innerHTML = "";
 
 	if (!notesLoaded) {
-		summary.textContent = "Loading notesâ€¦";
+		summary.textContent = `Loading notes${UI_ELLIPSIS}`;
 		return;
 	}
 
@@ -6786,7 +6990,7 @@ function renderNotesTab() {
 	list.innerHTML = "";
 
 	if (!notesLoaded) {
-		emptyTitle.textContent = "Loading notesâ€¦";
+		emptyTitle.textContent = `Loading notes${UI_ELLIPSIS}`;
 		emptyBody.textContent = "Your notes will appear here once they sync.";
 		empty.classList.remove("hidden");
 		return;
@@ -6917,23 +7121,31 @@ function buildMarkdownNoteContent(text) {
 	return content;
 }
 
-function buildAITrainerNoteHeading() {
+function buildNoteCardHeading({ label, variant }) {
 	const heading = document.createElement("div");
-	heading.className = "note-trainer-heading";
-	heading.setAttribute("aria-label", "AI Trainer Card");
+	heading.className = `note-card-heading note-card-heading--${variant}`;
+	heading.setAttribute("aria-label", label);
 
 	const icon = document.createElement("span");
-	icon.className = "note-trainer-heading-icon";
+	icon.className = "note-card-heading-icon";
 	icon.textContent = "";
 	icon.setAttribute("aria-hidden", "true");
 
-	const label = document.createElement("span");
-	label.className = "note-trainer-heading-text";
-	label.textContent = "AI Trainer Card";
+	const labelEl = document.createElement("span");
+	labelEl.className = "note-card-heading-text";
+	labelEl.textContent = label;
 
 	heading.appendChild(icon);
-	heading.appendChild(label);
+	heading.appendChild(labelEl);
 	return heading;
+}
+
+function buildAITrainerNoteHeading() {
+	return buildNoteCardHeading({ label: "Trainer Note", variant: "trainer" });
+}
+
+function buildUserNoteHeading() {
+	return buildNoteCardHeading({ label: "YOUR NOTE", variant: "user" });
 }
 
 function buildNoteNutritionChips(calorieEntry) {
@@ -6973,7 +7185,9 @@ function buildNoteCard(note) {
 	if (note.metadata?.marker) card.dataset.noteMarker = note.metadata.marker;
 	if (isReadOnlyNote(note)) card.dataset.readonly = "true";
 	card.addEventListener("click", () => openNoteEditor(note));
-	if (isAITrainer) card.appendChild(buildAITrainerNoteHeading());
+	card.appendChild(
+		isAITrainer ? buildAITrainerNoteHeading() : buildUserNoteHeading(),
+	);
 
 	const hasCalorieEntry = Boolean(note.calorieEntry);
 	if (hasCalorieEntry) {
@@ -6989,7 +7203,7 @@ function buildNoteCard(note) {
 		const calories = note.calorieEntry?.calories;
 		calorieValue.textContent = Number.isFinite(calories)
 			? `${Math.round(calories)}`
-			: "â€”";
+			: UI_EM_DASH;
 
 		const calorieUnit = document.createElement("div");
 		calorieUnit.className = "note-calorie-unit";
@@ -7069,7 +7283,7 @@ function buildNoteCard(note) {
 	} else if (isActive) {
 		const typeLabel = note.fastContext?.fastTypeLabel || "fast";
 		const elapsedLabel = hasElapsed
-			? ` â€¢ ${formatElapsedShort(elapsedMsAtNote)} in`
+			? `${UI_BULLET_SEPARATOR}${formatElapsedShort(elapsedMsAtNote)} in`
 			: "";
 		badge.textContent = `Active ${typeLabel}${elapsedLabel}`;
 	} else {
@@ -7130,12 +7344,12 @@ function renderRecentFasts() {
 		const title = document.createElement("div");
 		title.className = "history-fast-title";
 		const duration = resolveDurationHours(e, e.startTimestamp, e.endTimestamp);
-		title.textContent = `${type ? type.label : "Custom"} â€¢ ${duration.toFixed(1)}h`;
+		title.textContent = `${type ? type.label : "Custom"}${UI_BULLET_SEPARATOR}${duration.toFixed(1)}h`;
 
 		const start = new Date(e.startTimestamp);
 		const time = document.createElement("div");
 		time.className = "history-fast-subtitle";
-		time.textContent = `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} â€¢ ${formatTimeShort(start)}`;
+		time.textContent = `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })}${UI_BULLET_SEPARATOR}${formatTimeShort(start)}`;
 
 		const chartRow = document.createElement("div");
 		chartRow.className = "history-chart-row";
