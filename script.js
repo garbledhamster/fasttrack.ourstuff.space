@@ -7008,8 +7008,7 @@ function renderNotesTab() {
 		return;
 	}
 
-	const trainerPreviewNotes = getNotesForTrainer(getAITrainerNotesRangeOverride());
-	const visibleNotes = trainerPreviewNotes;
+	const visibleNotes = getNotesForTrainer(getAITrainerNotesRangeOverride());
 	const hiddenCount = Math.max(0, notes.length - visibleNotes.length);
 	empty.classList.add("hidden");
 	if (viewerSummary) {
