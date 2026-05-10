@@ -1319,6 +1319,10 @@ function applyNoteEditorReadOnlyState(readOnly) {
 	if (responseWrap) {
 		responseWrap.classList.toggle("hidden", !isTrainerNote);
 	}
+	const nutritionWrap = $("note-editor-nutrition-wrap");
+	if (nutritionWrap) {
+		nutritionWrap.classList.toggle("hidden", isTrainerNote);
+	}
 	const responseInput = $("note-editor-trainer-response");
 	if (responseInput) responseInput.readOnly = !isTrainerNote;
 	const saveButton = $("note-editor-save");
