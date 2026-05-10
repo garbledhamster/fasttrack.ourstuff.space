@@ -5814,8 +5814,7 @@ function getHistoryTrendEntries(selectedDate, dayCount = 7) {
 	const map = buildDayFastMap({ includeActive: true });
 	const entries = [];
 	for (let i = dayCount - 1; i >= 0; i--) {
-		const date = new Date(selectedDate);
-		date.setDate(selectedDate.getDate() - i);
+		const date = new Date(selectedDate.getTime() - i * 24 * 60 * 60 * 1000);
 		const key = formatDateKey(date);
 		entries.push({
 			key,
@@ -5955,8 +5954,9 @@ function renderDayDetails() {
 		const title = document.createElement("div");
 		title.className = "history-fast-title";
 		const label = type ? type.label : "Custom";
-		const durationHours = Number.isFinite(Number(e.durationHours))
-			? Number(e.durationHours)
+		const numericDuration = Number(e.durationHours);
+		const durationHours = Number.isFinite(numericDuration)
+			? numericDuration
 			: (computeDurationHours(displayStart, displayEnd) ?? 0);
 		title.textContent = e.isActive
 			? `Active • ${label} fast`
