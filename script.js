@@ -5957,7 +5957,7 @@ function renderDayDetails() {
 		const label = type ? type.label : "Custom";
 		const durationHours = Number.isFinite(Number(e.durationHours))
 			? Number(e.durationHours)
-			: computeDurationHours(displayStart, displayEnd) ?? 0;
+			: (computeDurationHours(displayStart, displayEnd) ?? 0);
 		title.textContent = e.isActive
 			? `Active • ${label} fast`
 			: `${label} • ${durationHours.toFixed(1)}h`;
@@ -6255,9 +6255,7 @@ function renderRecentFasts() {
 		compareLabel.className = "history-chart-label";
 		const delta = duration - averageDuration;
 		compareLabel.textContent =
-			delta >= 0
-				? `+${delta.toFixed(1)}h`
-				: `${delta.toFixed(1)}h`;
+			delta >= 0 ? `+${delta.toFixed(1)}h` : `${delta.toFixed(1)}h`;
 
 		const track = document.createElement("div");
 		track.className = "history-chart-track";
