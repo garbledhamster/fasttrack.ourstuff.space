@@ -408,8 +408,10 @@ let notesBackdrop = null;
 let bodyOverflowBeforeNotes = null;
 let notesSwipeHandlersAttached = false;
 let aiTrainerNotesRangeOverride = null;
+let aiTrainerProviderOverride = null;
 let aiTrainerNoteFilterOverride = [];
 let aiTrainerNoteAbortController = null;
+let quickTrainerQuestionAbortController = null;
 let historyProgressOverlayOpen = false;
 let historyProgressPortal = null;
 let historyProgressDrawerCloseTimeout = null;
@@ -921,7 +923,9 @@ function normalizeFastContext(fastContext, createdAt) {
 
 function normalizeNoteTags(tags) {
 	if (!Array.isArray(tags)) return [];
-	return [...new Set(tags.map((tag) => String(tag || "").trim()).filter(Boolean))];
+	return [
+		...new Set(tags.map((tag) => String(tag || "").trim()).filter(Boolean)),
+	];
 }
 
 function normalizeNoteMetadata(metadata, text = "") {
@@ -953,7 +957,10 @@ function normalizeNoteMetadata(metadata, text = "") {
 
 	return {
 		source: source || "user",
-		type: typeof raw.type === "string" && raw.type.trim() ? raw.type.trim() : "journal",
+		type:
+			typeof raw.type === "string" && raw.type.trim()
+				? raw.type.trim()
+				: "journal",
 		isAINote: raw.isAINote === true,
 		readOnly: raw.readOnly === true,
 		contentFormat: raw.contentFormat === "markdown" ? "markdown" : "plain",
@@ -963,12 +970,17 @@ function normalizeNoteMetadata(metadata, text = "") {
 }
 
 function isAITrainerNote(note) {
-	return normalizeNoteMetadata(note?.metadata, note?.text).source === AI_TRAINER_NOTE_SOURCE;
+	return (
+		normalizeNoteMetadata(note?.metadata, note?.text).source ===
+		AI_TRAINER_NOTE_SOURCE
+	);
 }
 
 function isReadOnlyNote(note) {
 	const metadata = normalizeNoteMetadata(note?.metadata, note?.text);
-	return metadata.readOnly === true || metadata.source === AI_TRAINER_NOTE_SOURCE;
+	return (
+		metadata.readOnly === true || metadata.source === AI_TRAINER_NOTE_SOURCE
+	);
 }
 
 function getDisplayNoteText(note) {
@@ -1079,7 +1091,10 @@ async function buildNotePayload({
 		payload,
 		createdAt,
 		updatedAt: createdAt,
-		dateKey: typeof dateKey === "string" ? dateKey : formatDateKey(new Date(createdAt)),
+		dateKey:
+			typeof dateKey === "string"
+				? dateKey
+				: formatDateKey(new Date(createdAt)),
 		goalContext: goalContext ?? buildGoalContext(),
 		fastContext: fastContext ?? buildFastContextAt(createdAt),
 		metadata: normalizeNoteMetadata(metadata, noteText),
@@ -1393,8 +1408,7 @@ async function handleNoteEditorSwipeDismiss() {
 	const text = $("note-editor-content").value.trim();
 	const caloriesValue = $("note-editor-calories").value.trim();
 	const nutritionValue = serializeNoteEditorNutritionFields();
-	const trainerResponse =
-		$("note-editor-trainer-response")?.value.trim() || "";
+	const trainerResponse = $("note-editor-trainer-response")?.value.trim() || "";
 	const hasChanges =
 		text !== editingNoteInitialText ||
 		caloriesValue !== editingNoteInitialCalories ||
@@ -1527,8 +1541,7 @@ function closeNoteEditor() {
 
 async function persistNoteEditor({ closeOnSave = true } = {}) {
 	const isTrainerNote = editingNoteMetadata?.source === AI_TRAINER_NOTE_SOURCE;
-	const trainerResponse =
-		$("note-editor-trainer-response")?.value.trim() || "";
+	const trainerResponse = $("note-editor-trainer-response")?.value.trim() || "";
 	if (editingNoteReadOnly && isTrainerNote) {
 		if (!editingNoteId) return false;
 		try {
@@ -4244,10 +4257,20 @@ const AI_TRAINER_NOTE_PROMPT = [
 	"Keep output light and actionable: max 4 short markdown bullets or short sections, no fluff.",
 	"If information is missing, give safe, realistic suggestions and mention uncertainty briefly.",
 ].join(" ");
+const AI_TRAINER_QUICK_QUESTION_PROMPT = [
+	"You are the user's expert trainer and nutrition coach.",
+	"Answer the user's quick question in exactly one clear paragraph.",
+	"Keep the response practical, supportive, and specific to the user's fasting and nutrition context.",
+	"Do not use markdown lists, headings, or multiple paragraphs.",
+].join(" ");
 const AI_TRAINER_NOTE_TITLE = "AI Trainer Note";
 const AI_TRAINER_NOTE_HEADING = "{ðŸ¤– TRAINER}";
 const AI_TRAINER_NOTE_SOURCE = "ai_trainer";
 const AI_TRAINER_NOTE_MARKER = "ai:trainer-note";
+const AI_TRAINER_QUICK_NOTE_TEXT_TEMPLATE =
+	"You asked: {question} — Trainer replied: {response}";
+const TRAINER_QUICK_QUESTION_MAX_CHARS = 500;
+const TRAINER_QUICK_RESPONSE_MAX_CHARS = 700;
 const AI_TRAINER_NOTE_TAGS = Object.freeze([
 	"ai",
 	"trainer",
@@ -4291,8 +4314,7 @@ function normalizeOpenAINotesRange(value) {
 function normalizeTrainerNoteFilters(value) {
 	const raw = Array.isArray(value) ? value : [];
 	return raw.filter(
-		(id, index) =>
-			TRAINER_NOTE_FILTERS[id] && raw.indexOf(id) === index,
+		(id, index) => TRAINER_NOTE_FILTERS[id] && raw.indexOf(id) === index,
 	);
 }
 
@@ -4340,30 +4362,53 @@ function getTrainerNoteFilterSummary(filters = getAITrainerNoteFilters()) {
 	return `Using ${labels.join(", ").toLowerCase()} from the selected range.`;
 }
 
-function getGlobalTrainerContextRange() {
-	const provider = normalizeLLMProvider(state.settings.llmProvider);
+function getGlobalTrainerContextRange(providerOverride = null) {
+	const provider = normalizeLLMProvider(
+		providerOverride === null ? state.settings.llmProvider : providerOverride,
+	);
 	return provider === "byo"
 		? normalizeOpenAINotesRange(state.settings.byoLlm?.notesRange)
 		: normalizeOpenAINotesRange(state.settings.openaiNotesRange);
 }
 
-function getTrainerContextRange() {
-	return getGlobalTrainerContextRange();
+function getAITrainerProviderOverride() {
+	return aiTrainerProviderOverride === null
+		? normalizeLLMProvider(state.settings.llmProvider)
+		: normalizeLLMProvider(aiTrainerProviderOverride);
+}
+
+function getTrainerContextRange(providerOverride = null) {
+	return getGlobalTrainerContextRange(providerOverride);
 }
 
 function getAITrainerNotesRangeOverride() {
 	return aiTrainerNotesRangeOverride === null
-		? getGlobalTrainerContextRange()
+		? getGlobalTrainerContextRange(getAITrainerProviderOverride())
 		: normalizeOpenAINotesRange(aiTrainerNotesRangeOverride);
 }
 
 function seedAITrainerNotesRangeOverride() {
-	aiTrainerNotesRangeOverride = getGlobalTrainerContextRange();
+	aiTrainerNotesRangeOverride = getGlobalTrainerContextRange(
+		getAITrainerProviderOverride(),
+	);
 	renderAITrainerNotesRangeOverride();
 }
 
 function clearAITrainerNotesRangeOverride() {
 	aiTrainerNotesRangeOverride = null;
+	aiTrainerProviderOverride = null;
+}
+
+function normalizeSingleParagraph(value, maxChars) {
+	const maxLength = Number.isFinite(maxChars) ? Math.max(1, maxChars) : 500;
+	const collapsed = String(value || "")
+		.replace(/\r\n/g, "\n")
+		.replace(/\n+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	if (!collapsed) return "";
+	if (collapsed.length <= maxLength) return collapsed;
+	return collapsed.slice(0, maxLength).trimEnd();
 }
 
 function getTrainerRangeCutoff(range, now = Date.now()) {
@@ -4498,8 +4543,10 @@ function parseByoLlmHeaders(headersText) {
 	}
 }
 
-function getAIProviderSettings() {
-	const provider = normalizeLLMProvider(state.settings.llmProvider);
+function getAIProviderSettings(providerOverride = null) {
+	const provider = normalizeLLMProvider(
+		providerOverride === null ? state.settings.llmProvider : providerOverride,
+	);
 	const byo = normalizeByoLlmSettings(state.settings.byoLlm);
 	if (provider === "byo") {
 		return {
@@ -4698,7 +4745,9 @@ function buildTrainerActiveFastContext() {
 		Number.isFinite(plannedDurationHours) && Number.isFinite(elapsedHours)
 			? plannedDurationHours - elapsedHours
 			: null;
-	const phaseHour = Number.isFinite(elapsedHours) ? Math.floor(elapsedHours) : null;
+	const phaseHour = Number.isFinite(elapsedHours)
+		? Math.floor(elapsedHours)
+		: null;
 	const phase = phaseHour !== null ? getHourlyEntry(phaseHour) : null;
 	return {
 		isCurrentlyFasting: true,
@@ -4734,7 +4783,9 @@ function buildFastingScheduleContext() {
 	return {
 		defaultFastType: buildTrainerFastTypeSummary(defaultType),
 		selectedFastType: buildTrainerFastTypeSummary(selectedType),
-		availableFastTypes: FAST_TYPES.map(buildTrainerFastTypeSummary).filter(Boolean),
+		availableFastTypes: FAST_TYPES.map(buildTrainerFastTypeSummary).filter(
+			Boolean,
+		),
 		physiologyNotes: Array.isArray(FASTING_HOURLY.notes)
 			? FASTING_HOURLY.notes.slice(0, 3)
 			: [],
@@ -4745,7 +4796,11 @@ function buildTrainerCompletedFastSummary(entry) {
 	const type = getTypeById(entry?.typeId);
 	const startTimestamp = Number(entry?.startTimestamp);
 	const endTimestamp = Number(entry?.endTimestamp);
-	const durationHours = resolveDurationHours(entry, startTimestamp, endTimestamp);
+	const durationHours = resolveDurationHours(
+		entry,
+		startTimestamp,
+		endTimestamp,
+	);
 	const targetDurationHours = type?.durationHours ?? null;
 	return {
 		id: entry?.id || null,
@@ -4766,19 +4821,24 @@ function buildTrainerCompletedFastSummary(entry) {
 	};
 }
 
-function buildTrainerContinuityContext(rangeOverride = null) {
+function buildTrainerContinuityContext(
+	rangeOverride = null,
+	providerOverride = null,
+) {
 	const range =
 		rangeOverride === null
-			? getTrainerContextRange()
+			? getTrainerContextRange(providerOverride)
 			: normalizeOpenAINotesRange(rangeOverride);
 	const trainerNoteFilters = getAITrainerNoteFilters();
-	const trainerNotes = getNotesForTrainer(range, trainerNoteFilters).map((note) => ({
-		date: note.createdAt ? new Date(note.createdAt).toISOString() : null,
-		source: note.metadata?.source || "user",
-		isAITrainerNote: isAITrainerNote(note),
-		text: getDisplayNoteText(note) || null,
-		userResponse: note.trainerResponse || null,
-	}));
+	const trainerNotes = getNotesForTrainer(range, trainerNoteFilters).map(
+		(note) => ({
+			date: note.createdAt ? new Date(note.createdAt).toISOString() : null,
+			source: note.metadata?.source || "user",
+			isAITrainerNote: isAITrainerNote(note),
+			text: getDisplayNoteText(note) || null,
+			userResponse: note.trainerResponse || null,
+		}),
+	);
 	const previousAITrainerNotes = trainerNotes.filter(
 		(note) => note.isAITrainerNote,
 	);
@@ -4788,7 +4848,9 @@ function buildTrainerContinuityContext(rangeOverride = null) {
 	return {
 		rangeLabel: OPENAI_NOTES_RANGE_LABELS[range],
 		noteFilters: trainerNoteFilters.length
-			? trainerNoteFilters.map((filterId) => TRAINER_NOTE_FILTERS[filterId].label)
+			? trainerNoteFilters.map(
+					(filterId) => TRAINER_NOTE_FILTERS[filterId].label,
+				)
 			: null,
 		notes: trainerNotes.length ? trainerNotes : null,
 		previousAITrainerNotes: previousAITrainerNotes.length
@@ -4804,8 +4866,9 @@ async function callAIChatCompletions({
 	purpose,
 	withReasoningFallback = false,
 	signal = null,
+	providerOverride = null,
 }) {
-	const config = getAIProviderSettings();
+	const config = getAIProviderSettings(providerOverride);
 	if (!config.apiUrl) {
 		showToast(
 			config.provider === "openai"
@@ -5008,8 +5071,14 @@ async function estimateCaloriesWithAI(noteContent) {
 	}
 }
 
-async function generateTrainerNoteWithAI(rangeOverride = null, signal = null) {
-	const provider = normalizeLLMProvider(state.settings.llmProvider);
+async function generateTrainerNoteWithAI(
+	rangeOverride = null,
+	signal = null,
+	providerOverride = null,
+) {
+	const provider = normalizeLLMProvider(
+		providerOverride === null ? state.settings.llmProvider : providerOverride,
+	);
 	const byoLlm = normalizeByoLlmSettings(state.settings.byoLlm);
 	const trainerInstructions = String(
 		provider === "byo"
@@ -5017,7 +5086,10 @@ async function generateTrainerNoteWithAI(rangeOverride = null, signal = null) {
 			: state.settings.openaiTrainerInstructions || "",
 	).trim();
 	const profile = buildGoalRecommendationProfile();
-	const trainerContext = buildTrainerContinuityContext(rangeOverride);
+	const trainerContext = buildTrainerContinuityContext(
+		rangeOverride,
+		providerOverride,
+	);
 	const todayKey = formatDateKey(new Date());
 	const todayCalories = getNoteCaloriesForDateKey(todayKey);
 	const todayNutrition = formatNutritionInlineSummary(todayKey);
@@ -5044,6 +5116,7 @@ async function generateTrainerNoteWithAI(rangeOverride = null, signal = null) {
 			purpose: "AI trainer note",
 			withReasoningFallback: true,
 			signal,
+			providerOverride: provider,
 		});
 		if (!data) return null;
 		const messageContent = data.choices?.[0]?.message?.content;
@@ -5074,8 +5147,16 @@ async function generateTrainerNoteWithAI(rangeOverride = null, signal = null) {
 	}
 }
 
-async function addAITrainerNote(rangeOverride = null, signal = null) {
-	const trainerText = await generateTrainerNoteWithAI(rangeOverride, signal);
+async function addAITrainerNote(
+	rangeOverride = null,
+	signal = null,
+	providerOverride = null,
+) {
+	const trainerText = await generateTrainerNoteWithAI(
+		rangeOverride,
+		signal,
+		providerOverride,
+	);
 	if (!trainerText) return false;
 	const noteId = await createNote({
 		text: trainerText,
@@ -5097,6 +5178,130 @@ async function addAITrainerNote(rangeOverride = null, signal = null) {
 	}
 	renderNotes();
 	showToast("Added AI trainer note");
+	return true;
+}
+
+async function generateTrainerQuickQuestionResponse({
+	question,
+	rangeOverride = null,
+	providerOverride = null,
+	signal = null,
+}) {
+	const provider = normalizeLLMProvider(
+		providerOverride === null ? state.settings.llmProvider : providerOverride,
+	);
+	const normalizedQuestion = normalizeSingleParagraph(
+		question,
+		TRAINER_QUICK_QUESTION_MAX_CHARS,
+	);
+	if (!normalizedQuestion) {
+		showToast("Ask a quick question first");
+		return null;
+	}
+	const trainerContext = buildTrainerContinuityContext(
+		rangeOverride,
+		providerOverride,
+	);
+	const userPayload = JSON.stringify(
+		{
+			quickQuestion: normalizedQuestion,
+			fastingSchedule: buildFastingScheduleContext(),
+			activeFast: buildTrainerActiveFastContext(),
+			today: {
+				dateKey: formatDateKey(new Date()),
+				nutritionSummary:
+					formatNutritionInlineSummary(formatDateKey(new Date())) || null,
+			},
+			trainerContext,
+		},
+		null,
+		2,
+	);
+	try {
+		const data = await callAIChatCompletions({
+			systemPrompt: AI_TRAINER_QUICK_QUESTION_PROMPT,
+			userPrompt: userPayload,
+			purpose: "AI trainer quick question",
+			withReasoningFallback: true,
+			signal,
+			providerOverride: provider,
+		});
+		if (!data) return null;
+		const messageContent = data.choices?.[0]?.message?.content;
+		let aiText = "";
+		if (typeof messageContent === "string") {
+			aiText = messageContent.trim();
+		} else if (Array.isArray(messageContent)) {
+			aiText = messageContent
+				.map((part) => (typeof part?.text === "string" ? part.text : ""))
+				.join("\n")
+				.trim();
+		}
+		const firstParagraph = aiText.split(/\n\s*\n/u)[0] || "";
+		const response = normalizeSingleParagraph(
+			firstParagraph,
+			TRAINER_QUICK_RESPONSE_MAX_CHARS,
+		);
+		if (!response) {
+			showToast("No response from AI");
+			return null;
+		}
+		return response;
+	} catch (error) {
+		if (error?.name === "AbortError") {
+			showToast("Cancelled quick question");
+			return null;
+		}
+		console.error("Error calling AI API:", error);
+		showToast(
+			"Failed to generate trainer response. Please try again or check your AI settings.",
+		);
+		return null;
+	}
+}
+
+async function addAITrainerQuickQuestionNote({
+	question,
+	rangeOverride = null,
+	providerOverride = null,
+	signal = null,
+}) {
+	const normalizedQuestion = normalizeSingleParagraph(
+		question,
+		TRAINER_QUICK_QUESTION_MAX_CHARS,
+	);
+	if (!normalizedQuestion) return false;
+	const trainerResponse = await generateTrainerQuickQuestionResponse({
+		question: normalizedQuestion,
+		rangeOverride,
+		providerOverride,
+		signal,
+	});
+	if (!trainerResponse) return false;
+	const noteText = AI_TRAINER_QUICK_NOTE_TEXT_TEMPLATE.replace(
+		"{question}",
+		normalizedQuestion,
+	).replace("{response}", trainerResponse);
+	const noteId = await createNote({
+		text: noteText,
+		dateKey: formatDateKey(new Date()),
+		fastContext: buildFastContext(),
+		metadata: {
+			source: AI_TRAINER_NOTE_SOURCE,
+			type: "trainer_note",
+			isAINote: true,
+			readOnly: true,
+			contentFormat: "markdown",
+			marker: AI_TRAINER_NOTE_MARKER,
+			tags: [...AI_TRAINER_NOTE_TAGS],
+		},
+	});
+	if (!noteId) {
+		showToast("Failed to save quick question note");
+		return false;
+	}
+	renderNotes();
+	showToast("Added quick trainer response");
 	return true;
 }
 
@@ -5470,6 +5675,7 @@ function initButtons() {
 	const updateAITrainerNotesRangeOverride = (event) => {
 		aiTrainerNotesRangeOverride = normalizeOpenAINotesRange(event.target.value);
 		renderAITrainerNotesRangeOverride();
+		renderNotes();
 	};
 	$("ai-trainer-notes-range").addEventListener(
 		"input",
@@ -5490,6 +5696,71 @@ function initButtons() {
 			setAITrainerNoteFilters([]);
 		});
 	}
+	$("ai-trainer-provider-override-openai").addEventListener(
+		"change",
+		(event) => {
+			if (!event.target.checked) return;
+			aiTrainerProviderOverride = "openai";
+			renderAITrainerProviderOverride();
+			renderNotes();
+		},
+	);
+	$("ai-trainer-provider-override-byo").addEventListener("change", (event) => {
+		if (!event.target.checked) return;
+		aiTrainerProviderOverride = "byo";
+		renderAITrainerProviderOverride();
+		renderNotes();
+	});
+	$("ai-trainer-provider-override-clear").addEventListener("click", () => {
+		aiTrainerProviderOverride = null;
+		renderAITrainerProviderOverride();
+		renderNotes();
+	});
+	const quickQuestionInput = $("trainer-quick-question-input");
+	if (quickQuestionInput) {
+		quickQuestionInput.addEventListener("input", () => {
+			renderTrainerQuickQuestionInput();
+		});
+	}
+	$("trainer-quick-question-send").addEventListener("click", async () => {
+		const input = $("trainer-quick-question-input");
+		const button = $("trainer-quick-question-send");
+		if (!input || !button) return;
+		const question = normalizeSingleParagraph(
+			input.value,
+			TRAINER_QUICK_QUESTION_MAX_CHARS,
+		);
+		if (!question) {
+			showToast("Ask a quick question first");
+			renderTrainerQuickQuestionInput();
+			return;
+		}
+		if (quickTrainerQuestionAbortController || aiTrainerNoteAbortController) {
+			showToast("A trainer request is already running");
+			return;
+		}
+		const abortController = new AbortController();
+		quickTrainerQuestionAbortController = abortController;
+		const originalText = button.textContent;
+		button.disabled = true;
+		button.textContent = "Sending...";
+		try {
+			const added = await addAITrainerQuickQuestionNote({
+				question,
+				rangeOverride: getAITrainerNotesRangeOverride(),
+				providerOverride: getAITrainerProviderOverride(),
+				signal: abortController.signal,
+			});
+			if (added) input.value = "";
+		} finally {
+			if (quickTrainerQuestionAbortController === abortController) {
+				quickTrainerQuestionAbortController = null;
+			}
+			button.textContent = originalText;
+			button.disabled = false;
+			renderTrainerQuickQuestionInput();
+		}
+	});
 	$("ai-trainer-note-btn").addEventListener("click", async () => {
 		const button = $("ai-trainer-note-btn");
 		if (aiTrainerNoteAbortController) {
@@ -5506,6 +5777,7 @@ function initButtons() {
 			await addAITrainerNote(
 				getAITrainerNotesRangeOverride(),
 				abortController.signal,
+				getAITrainerProviderOverride(),
 			);
 		} finally {
 			if (aiTrainerNoteAbortController === abortController) {
@@ -6920,6 +7192,8 @@ function renderNotes() {
 	renderHistoryNotes();
 	renderNotesTab();
 	renderAITrainerNotesRangeOverride();
+	renderAITrainerProviderOverride();
+	renderTrainerQuickQuestionInput();
 	renderCalorieSummary();
 	renderCalorieRing();
 	renderCalorieButton();
@@ -6934,6 +7208,37 @@ function renderAITrainerNotesRangeOverride() {
 	slider.value = range;
 	label.textContent = OPENAI_NOTES_RANGE_LABELS[range];
 	renderAITrainerNoteFilters();
+}
+
+function renderAITrainerProviderOverride() {
+	const openai = $("ai-trainer-provider-override-openai");
+	const byo = $("ai-trainer-provider-override-byo");
+	const subtitle = $("trainer-provider-override-subtitle");
+	const clearButton = $("ai-trainer-provider-override-clear");
+	if (!openai || !byo || !subtitle || !clearButton) return;
+	const globalProvider = normalizeLLMProvider(state.settings.llmProvider);
+	const selectedProvider = getAITrainerProviderOverride();
+	openai.checked = selectedProvider === "openai";
+	byo.checked = selectedProvider === "byo";
+	subtitle.textContent =
+		aiTrainerProviderOverride === null
+			? `Global default: ${globalProvider === "byo" ? "Custom model" : "OpenAI"}`
+			: `Override active: ${selectedProvider === "byo" ? "Custom model" : "OpenAI"}`;
+	clearButton.disabled = aiTrainerProviderOverride === null;
+}
+
+function renderTrainerQuickQuestionInput() {
+	const input = $("trainer-quick-question-input");
+	const count = $("trainer-quick-question-count");
+	const sendButton = $("trainer-quick-question-send");
+	if (!input || !count || !sendButton) return;
+	const trimmed = normalizeSingleParagraph(
+		input.value,
+		TRAINER_QUICK_QUESTION_MAX_CHARS,
+	);
+	count.textContent = `${trimmed.length} / ${TRAINER_QUICK_QUESTION_MAX_CHARS}`;
+	sendButton.disabled =
+		!trimmed || Boolean(quickTrainerQuestionAbortController);
 }
 
 function renderAITrainerNoteFilters() {
@@ -7063,14 +7368,11 @@ function sanitizeMarkdownHref(value) {
 
 function renderMarkdownInline(value) {
 	let html = escapeHtml(value);
-	html = html.replace(
-		/\[([^\]]+)\]\(([^)\s]+)\)/g,
-		(_match, label, href) => {
-			const safeHref = sanitizeMarkdownHref(href);
-			if (!safeHref) return label;
-			return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
-		},
-	);
+	html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_match, label, href) => {
+		const safeHref = sanitizeMarkdownHref(href);
+		if (!safeHref) return label;
+		return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+	});
 	html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
 	html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 	html = html.replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>");
@@ -7078,7 +7380,9 @@ function renderMarkdownInline(value) {
 }
 
 function renderMarkdownToHtml(markdown) {
-	const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+	const lines = String(markdown || "")
+		.replace(/\r\n/g, "\n")
+		.split("\n");
 	const html = [];
 	let paragraph = [];
 	let listType = null;
@@ -7273,7 +7577,9 @@ function buildNoteCard(note) {
 		}
 	} else {
 		if (isAITrainer || note.metadata?.contentFormat === "markdown") {
-			card.appendChild(buildMarkdownNoteContent(displayText || "Untitled note"));
+			card.appendChild(
+				buildMarkdownNoteContent(displayText || "Untitled note"),
+			);
 		} else {
 			const text = document.createElement("div");
 			text.className = "text-default whitespace-pre-wrap text-sm md:text-xs";
