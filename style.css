@@ -957,7 +957,8 @@ body.bg-slate-950 {
 	--tw-ring-color: var(--primary-color);
 }
 
-.accent-cyan-400 {
+.accent-cyan-400,
+.accent-brand-500 {
 	accent-color: var(--primary-color);
 }
 
