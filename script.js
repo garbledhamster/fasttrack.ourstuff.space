@@ -1432,7 +1432,7 @@ function clearWrappedKeyStorage(uid) {
 
 function openDeviceKeyDb() {
 	return new Promise((resolve, reject) => {
-		const req = indexedDB.open(DEVICE_KEY_DB);
+		const req = indexedDB.open(DEVICE_KEY_DB, 1);
 		req.onupgradeneeded = () => {
 			if (!req.result.objectStoreNames.contains(DEVICE_KEY_STORE)) {
 				req.result.createObjectStore(DEVICE_KEY_STORE);
@@ -1444,7 +1444,7 @@ function openDeviceKeyDb() {
 				resolve(db);
 				return;
 			}
-			const nextVersion = Math.max(db.version || 1, 1) + 1;
+			const nextVersion = (db.version || 1) + 1;
 			db.close();
 			const upgradeReq = indexedDB.open(DEVICE_KEY_DB, nextVersion);
 			upgradeReq.onupgradeneeded = () => {
