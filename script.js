@@ -271,6 +271,9 @@ const OPENAI_ALLOWED_MODELS = Object.freeze([
 ]);
 const DEFAULT_OPENAI_MODEL = OPENAI_ALLOWED_MODELS[0];
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
+const OPENAI_MAX_TOKENS_WITH_REASONING = 4096;
+const OPENAI_MAX_TOKENS_STANDARD = 320;
+const MAX_IMPERIAL_HEIGHT_PART = 11;
 const CALORIE_GOAL_IDS = new Set(["lose", "maintain", "gain"]);
 const defaultState = {
 	settings: {
@@ -2677,7 +2680,7 @@ function ensureHeightSelectorsPopulated() {
 	const inchesSelect = $("calorie-height-inches-select");
 	[feetSelect, inchesSelect].forEach((selectEl) => {
 		if (!selectEl || selectEl.options.length > 0) return;
-		for (let value = 0; value <= 11; value += 1) {
+		for (let value = 0; value <= MAX_IMPERIAL_HEIGHT_PART; value += 1) {
 			const option = document.createElement("option");
 			option.value = String(value);
 			option.textContent = String(value);
@@ -2691,18 +2694,33 @@ function normalizeImperialHeight(heightValue) {
 	if (!Number.isFinite(normalized) || normalized <= 0) {
 		return { feet: 0, inches: 0 };
 	}
-	const capped = Math.max(0, Math.min(normalized, 11 * 12 + 11));
+	const capped = Math.max(
+		0,
+		Math.min(
+			normalized,
+			MAX_IMPERIAL_HEIGHT_PART * 12 + MAX_IMPERIAL_HEIGHT_PART,
+		),
+	);
 	const feet = Math.floor(capped / 12);
 	const inches = Math.round(capped - feet * 12);
-	return { feet, inches: Math.max(0, Math.min(inches, 11)) };
+	return {
+		feet,
+		inches: Math.max(0, Math.min(inches, MAX_IMPERIAL_HEIGHT_PART)),
+	};
 }
 
 function getHeightFromImperialSelectors() {
 	const feet = Number($("calorie-height-feet-select")?.value);
 	const inches = Number($("calorie-height-inches-select")?.value);
 	if (!Number.isFinite(feet) || !Number.isFinite(inches)) return null;
-	const normalizedFeet = Math.max(0, Math.min(Math.round(feet), 11));
-	const normalizedInches = Math.max(0, Math.min(Math.round(inches), 11));
+	const normalizedFeet = Math.max(
+		0,
+		Math.min(Math.round(feet), MAX_IMPERIAL_HEIGHT_PART),
+	);
+	const normalizedInches = Math.max(
+		0,
+		Math.min(Math.round(inches), MAX_IMPERIAL_HEIGHT_PART),
+	);
 	const totalInches = normalizedFeet * 12 + normalizedInches;
 	return totalInches > 0 ? totalInches : null;
 }
@@ -3657,7 +3675,7 @@ async function recommendGoalPlanWithAI() {
 		"Recommend a realistic calorie and daily nutrient plan tailored to the user profile.",
 		"Respect the user instructions and account for dietary needs, injuries, and limitations.",
 		'Return ONLY valid JSON in this exact shape: {"dailyTarget": number|null, "goal": "lose"|"maintain"|"gain"|null, "nutrientGoals": {"macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}}.',
-		"Use grams for macros, milligrams for micros and vitaminC/vitaminB6, and micrograms for vitaminA/vitaminD/vitaminB12.",
+		"Use grams for macros, milligrams for micros and vitaminC/vitaminB6, and micrograms for vitaminA/vitaminD/vitamin B12.",
 		"Use numbers only, no units, no extra keys, no markdown, no explanation.",
 	].join(" ");
 	const userPayload = JSON.stringify(
@@ -3684,7 +3702,9 @@ async function recommendGoalPlanWithAI() {
 					content: userPayload,
 				},
 			],
-			max_completion_tokens: usingReasoning ? 4096 : 320,
+			max_completion_tokens: usingReasoning
+				? OPENAI_MAX_TOKENS_WITH_REASONING
+				: OPENAI_MAX_TOKENS_STANDARD,
 		};
 		if (!usingReasoning) {
 			requestBody.temperature = 1;
@@ -3772,7 +3792,9 @@ async function estimateCaloriesWithAI(noteText) {
 					content: noteText,
 				},
 			],
-			max_completion_tokens: usingReasoning ? 4096 : 320,
+			max_completion_tokens: usingReasoning
+				? OPENAI_MAX_TOKENS_WITH_REASONING
+				: OPENAI_MAX_TOKENS_STANDARD,
 		};
 		if (!usingReasoning) {
 			requestBody.temperature = 1;
