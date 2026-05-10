@@ -274,7 +274,7 @@ const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
 const OPENAI_MAX_TOKENS_WITH_REASONING = 4096;
 const OPENAI_MAX_TOKENS_STANDARD = 320;
 const MAX_IMPERIAL_HEIGHT_PART = 11;
-const CALORIE_GOAL_IDS = new Set(["lose", "maintain", "gain"]);
+const VALID_CALORIE_GOALS = new Set(["lose", "maintain", "gain"]);
 const defaultState = {
 	settings: {
 		defaultFastTypeId: "16_8",
@@ -2680,7 +2680,7 @@ function ensureHeightSelectorsPopulated() {
 	const inchesSelect = $("calorie-height-inches-select");
 	[feetSelect, inchesSelect].forEach((selectEl) => {
 		if (!selectEl || selectEl.options.length > 0) return;
-		for (let value = 0; value <= MAX_IMPERIAL_HEIGHT_PART; value += 1) {
+		for (let value = 0; value <= MAX_IMPERIAL_HEIGHT_PART; value++) {
 			const option = document.createElement("option");
 			option.value = String(value);
 			option.textContent = String(value);
@@ -2723,6 +2723,11 @@ function getHeightFromImperialSelectors() {
 	);
 	const totalInches = normalizedFeet * 12 + normalizedInches;
 	return totalInches > 0 ? totalInches : null;
+}
+
+function setCalorieTargetSettings(settings, target) {
+	settings.dailyTarget = target;
+	settings.target = target;
 }
 
 function getCalorieTarget() {
@@ -3231,8 +3236,7 @@ function initCalories() {
 		targetInput.addEventListener("input", (event) => {
 			const next = parseCalorieValue(event.target.value);
 			const settings = getCalorieSettings();
-			settings.dailyTarget = next;
-			settings.target = next;
+			setCalorieTargetSettings(settings, next);
 			void saveState();
 			renderCalories();
 		});
@@ -3431,7 +3435,7 @@ function normalizeCalorieGoalId(value) {
 	const normalized = String(value || "")
 		.trim()
 		.toLowerCase();
-	return CALORIE_GOAL_IDS.has(normalized) ? normalized : "";
+	return VALID_CALORIE_GOALS.has(normalized) ? normalized : "";
 }
 
 function normalizeAIEstimatedNutrition(payload) {
@@ -3674,7 +3678,8 @@ async function recommendGoalPlanWithAI() {
 		"You are a personal trainer and nutrition coach.",
 		"Recommend a realistic calorie and daily nutrient plan tailored to the user profile.",
 		"Respect the user instructions and account for dietary needs, injuries, and limitations.",
-		'Return ONLY valid JSON in this exact shape: {"dailyTarget": number|null, "goal": "lose"|"maintain"|"gain"|null, "nutrientGoals": {"macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}}.',
+		"Return ONLY valid JSON in this exact shape:",
+		'{"dailyTarget": number|null, "goal": "lose"|"maintain"|"gain"|null, "nutrientGoals": {"macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}}.',
 		"Use grams for macros, milligrams for micros and vitaminC/vitaminB6, and micrograms for vitaminA/vitaminD/vitaminB12.",
 		"Use numbers only, no units, no extra keys, no markdown, no explanation.",
 	].join(" ");
@@ -4104,8 +4109,7 @@ function initButtons() {
 			Number.isFinite(recommendation.dailyTarget) &&
 			recommendation.dailyTarget > 0
 		) {
-			settings.dailyTarget = recommendation.dailyTarget;
-			settings.target = recommendation.dailyTarget;
+			setCalorieTargetSettings(settings, recommendation.dailyTarget);
 			updated = true;
 		}
 		if (recommendation.goal) {
