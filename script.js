@@ -264,16 +264,20 @@ function buildDefaultNutrientGoals() {
 }
 const NUTRIENT_DECIMAL_THRESHOLD = 100;
 const NUTRIENT_NUMBER_FORMAT = new Intl.NumberFormat();
-const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
-const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
-const OPENAI_TOOL_OPTIONS = new Set(["none", "nutrition_function"]);
-const OPENAI_LATEST_MODEL_PREFIXES = Object.freeze([
-	"gpt-5",
-	"gpt-4.1",
-	"gpt-4o",
-	"o4-mini",
-	"o3",
+const OPENAI_ALLOWED_MODELS = Object.freeze([
+	"gpt-5.5",
+	"gpt-5.4",
+	"gpt-5.4-mini",
 ]);
+const DEFAULT_OPENAI_MODEL = OPENAI_ALLOWED_MODELS[0];
+const OPENAI_REASONING_EFFORTS = new Set([
+	"none",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+]);
+const OPENAI_TOOL_OPTIONS = new Set(["none", "nutrition_function"]);
 
 const defaultState = {
 	settings: {
@@ -3389,8 +3393,12 @@ function parseAIJsonPayload(text) {
 }
 
 function normalizeOpenAIModel(value) {
-	const trimmed = String(value || "").trim();
-	return trimmed || DEFAULT_OPENAI_MODEL;
+	const normalized = String(value || "")
+		.trim()
+		.toLowerCase();
+	return OPENAI_ALLOWED_MODELS.includes(normalized)
+		? normalized
+		: DEFAULT_OPENAI_MODEL;
 }
 
 function normalizeOpenAIReasoningEffort(value) {
@@ -3413,40 +3421,25 @@ function sanitizeBearerToken(value) {
 	return token;
 }
 
-function isLatestOpenAIModel(modelId) {
+function isAllowedOpenAIModel(modelId) {
 	const normalized = String(modelId || "")
 		.trim()
 		.toLowerCase();
-	if (!normalized) return false;
-	return OPENAI_LATEST_MODEL_PREFIXES.some(
-		(prefix) => normalized === prefix || normalized.startsWith(`${prefix}-`),
-	);
+	return OPENAI_ALLOWED_MODELS.includes(normalized);
 }
 
 function supportsReasoningEffort(modelId) {
-	const normalized = String(modelId || "")
-		.trim()
-		.toLowerCase();
-	return /^o[13](-|$)/.test(normalized);
+	return isAllowedOpenAIModel(modelId);
 }
 
 function compareOpenAIModelOptions(left, right) {
 	const lowerLeft = left.toLowerCase();
 	const lowerRight = right.toLowerCase();
-	const leftPrefixIndex = OPENAI_LATEST_MODEL_PREFIXES.findIndex(
-		(prefix) => lowerLeft === prefix || lowerLeft.startsWith(`${prefix}-`),
-	);
-	const rightPrefixIndex = OPENAI_LATEST_MODEL_PREFIXES.findIndex(
-		(prefix) => lowerRight === prefix || lowerRight.startsWith(`${prefix}-`),
-	);
-	const leftRank =
-		leftPrefixIndex === -1
-			? OPENAI_LATEST_MODEL_PREFIXES.length
-			: leftPrefixIndex;
+	const leftIndex = OPENAI_ALLOWED_MODELS.indexOf(lowerLeft);
+	const rightIndex = OPENAI_ALLOWED_MODELS.indexOf(lowerRight);
+	const leftRank = leftIndex === -1 ? OPENAI_ALLOWED_MODELS.length : leftIndex;
 	const rightRank =
-		rightPrefixIndex === -1
-			? OPENAI_LATEST_MODEL_PREFIXES.length
-			: rightPrefixIndex;
+		rightIndex === -1 ? OPENAI_ALLOWED_MODELS.length : rightIndex;
 	if (leftRank !== rightRank) return leftRank - rightRank;
 	return left.localeCompare(right, "en", {
 		sensitivity: "base",
@@ -3488,21 +3481,11 @@ function syncReasoningSettingForModel() {
 function renderOpenAIModelOptions() {
 	const modelSelect = $("openai-model-select");
 	if (!modelSelect) return;
-	const apiKey = state.settings.openaiApiKey?.trim();
 	const selectedModel = normalizeOpenAIModel(state.settings.openaiModel);
 	modelSelect.innerHTML = "";
-	if (!apiKey) {
-		const option = document.createElement("option");
-		option.value = selectedModel;
-		option.textContent = `${selectedModel} (add API key to load models)`;
-		modelSelect.appendChild(option);
-		modelSelect.value = selectedModel;
-		modelSelect.disabled = true;
-		return;
-	}
 	const models = openAIModelOptions.length
 		? [...openAIModelOptions]
-		: [DEFAULT_OPENAI_MODEL];
+		: [...OPENAI_ALLOWED_MODELS];
 	if (!models.includes(selectedModel)) models.unshift(selectedModel);
 	models.forEach((modelId) => {
 		const option = document.createElement("option");
@@ -3523,60 +3506,12 @@ function renderOpenAIModelOptions() {
 }
 
 async function loadOpenAIModels(forceRefresh = false) {
-	const modelSelect = $("openai-model-select");
-	if (!modelSelect) return;
-	const apiKey = sanitizeBearerToken(state.settings.openaiApiKey);
-	if (!apiKey) {
-		openAIModelOptions = [];
-		openAIModelsLoadedForKey = "";
-		renderOpenAIModelOptions();
-		return;
-	}
-	if (
-		!forceRefresh &&
-		openAIModelsLoadedForKey === apiKey &&
-		openAIModelOptions.length
-	) {
-		renderOpenAIModelOptions();
-		return;
-	}
-	modelSelect.disabled = true;
-	try {
-		const response = await fetch("https://api.openai.com/v1/models", {
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-			},
-		});
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(
-				error?.error?.message ||
-					`Could not load models (HTTP ${response.status})`,
-			);
-		}
-		const data = await response.json();
-		const modelIds = Array.isArray(data?.data)
-			? data.data
-					.map((model) =>
-						typeof model?.id === "string" ? model.id.trim() : "",
-					)
-					.filter(Boolean)
-			: [];
-		const latestModels = modelIds.filter(isLatestOpenAIModel);
-		const options = (
-			latestModels.length ? latestModels : [DEFAULT_OPENAI_MODEL]
-		).sort(compareOpenAIModelOptions);
-		openAIModelOptions = Array.from(new Set(options));
-		if (!openAIModelOptions.length) openAIModelOptions = [DEFAULT_OPENAI_MODEL];
-		openAIModelsLoadedForKey = apiKey;
-	} catch (error) {
-		console.error("Failed to load OpenAI models:", error);
-		showToast(`Could not load OpenAI models, using ${DEFAULT_OPENAI_MODEL}`);
-		openAIModelOptions = [DEFAULT_OPENAI_MODEL];
-		openAIModelsLoadedForKey = "";
-	} finally {
-		renderOpenAIModelOptions();
-	}
+	void forceRefresh;
+	openAIModelOptions = [...OPENAI_ALLOWED_MODELS].sort(
+		compareOpenAIModelOptions,
+	);
+	openAIModelsLoadedForKey = sanitizeBearerToken(state.settings.openaiApiKey);
+	renderOpenAIModelOptions();
 }
 
 async function estimateCaloriesWithAI(noteText) {
