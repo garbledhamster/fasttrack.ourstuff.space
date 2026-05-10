@@ -383,6 +383,14 @@ let notesPortal = null;
 let notesBackdrop = null;
 let bodyOverflowBeforeNotes = null;
 let notesSwipeHandlersAttached = false;
+let historyProgressOverlayOpen = false;
+let historyProgressPortal = null;
+let historyProgressDrawerCloseTimeout = null;
+let nutritionProgressOverlayOpen = false;
+let nutritionProgressPortal = null;
+let nutritionProgressDrawerCloseTimeout = null;
+let bodyOverflowBeforeSecondaryDrawers = null;
+let secondaryDrawerEscapeHandlerAttached = false;
 let noteEditorSwipeHandlersAttached = false;
 let pendingConfirmAction = null;
 let pendingConfirmCloseFocus = null;
@@ -2509,6 +2517,200 @@ function closeNotesDrawer(forceImmediate = false) {
 	}, 220);
 }
 
+function ensureSecondaryDrawerOverlay(drawerType) {
+	let drawer = null;
+	let portalRef = null;
+	let closeFn = null;
+
+	if (drawerType === "history") {
+		drawer = $("history-progress-drawer");
+		portalRef = historyProgressPortal;
+		closeFn = () => closeHistoryProgressDrawer();
+	} else if (drawerType === "nutrition") {
+		drawer = $("nutrition-progress-drawer");
+		portalRef = nutritionProgressPortal;
+		closeFn = () => closeNutritionProgressDrawer();
+	}
+
+	if (!drawer || portalRef) return;
+
+	const portal = document.createElement("div");
+	portal.style.position = "fixed";
+	portal.style.inset = "0";
+	portal.style.zIndex = "9999";
+	portal.style.display = "none";
+	portal.style.pointerEvents = "auto";
+	portal.style.touchAction = "pan-y";
+	portal.style.overscrollBehaviorX = "contain";
+
+	const backdrop = document.createElement("div");
+	backdrop.style.position = "absolute";
+	backdrop.style.inset = "0";
+	backdrop.style.background = "rgba(0,0,0,0.55)";
+	backdrop.style.backdropFilter = "blur(2px)";
+	backdrop.style.webkitBackdropFilter = "blur(2px)";
+
+	portal.appendChild(backdrop);
+	portal.appendChild(drawer);
+
+	drawer.style.position = "absolute";
+	drawer.style.top = "0";
+	drawer.style.right = "0";
+	drawer.style.bottom = "0";
+	drawer.style.left = "auto";
+	drawer.style.width = "min(420px, 100vw)";
+	drawer.style.maxWidth = "100vw";
+	drawer.style.height = "100%";
+	drawer.style.overflow = "auto";
+	drawer.style.zIndex = "10000";
+
+	drawer.addEventListener("mousedown", (e) => e.stopPropagation());
+	drawer.addEventListener("touchstart", (e) => e.stopPropagation(), {
+		passive: true,
+	});
+	drawer.addEventListener("click", (e) => e.stopPropagation());
+
+	backdrop.addEventListener("click", closeFn);
+	document.body.appendChild(portal);
+
+	if (drawerType === "history") {
+		historyProgressPortal = portal;
+	} else if (drawerType === "nutrition") {
+		nutritionProgressPortal = portal;
+	}
+
+	if (!secondaryDrawerEscapeHandlerAttached) {
+		secondaryDrawerEscapeHandlerAttached = true;
+		document.addEventListener("keydown", (e) => {
+			if (e.key !== "Escape") return;
+			if (historyProgressOverlayOpen) closeHistoryProgressDrawer();
+			if (nutritionProgressOverlayOpen) closeNutritionProgressDrawer();
+		});
+	}
+}
+
+function restoreSecondaryDrawerBodyOverflow() {
+	if (historyProgressOverlayOpen || nutritionProgressOverlayOpen) return;
+	if (bodyOverflowBeforeSecondaryDrawers !== null) {
+		document.body.style.overflow = bodyOverflowBeforeSecondaryDrawers;
+		bodyOverflowBeforeSecondaryDrawers = null;
+	}
+}
+
+function openHistoryProgressDrawer() {
+	ensureSecondaryDrawerOverlay("history");
+	const drawer = $("history-progress-drawer");
+	const btn = $("history-progress-drawer-btn");
+	if (!drawer || !historyProgressPortal) return;
+
+	if (historyProgressDrawerCloseTimeout) {
+		clearTimeout(historyProgressDrawerCloseTimeout);
+		historyProgressDrawerCloseTimeout = null;
+	}
+	closeNutritionProgressDrawer(true);
+
+	if (bodyOverflowBeforeSecondaryDrawers === null)
+		bodyOverflowBeforeSecondaryDrawers = document.body.style.overflow || "";
+	document.body.style.overflow = "hidden";
+
+	historyProgressPortal.style.display = "block";
+	drawer.classList.remove("hidden");
+	requestAnimationFrame(() => drawer.classList.add("is-open"));
+	historyProgressOverlayOpen = true;
+	if (btn) btn.setAttribute("aria-expanded", "true");
+	renderDayDetails();
+	renderNotes();
+}
+
+function closeHistoryProgressDrawer(forceImmediate = false) {
+	const drawer = $("history-progress-drawer");
+	const btn = $("history-progress-drawer-btn");
+	if (!drawer || !historyProgressPortal) {
+		historyProgressOverlayOpen = false;
+		if (btn) btn.setAttribute("aria-expanded", "false");
+		restoreSecondaryDrawerBodyOverflow();
+		return;
+	}
+
+	historyProgressOverlayOpen = false;
+	if (btn) btn.setAttribute("aria-expanded", "false");
+	drawer.classList.remove("is-open");
+
+	if (forceImmediate) {
+		drawer.classList.add("hidden");
+		historyProgressPortal.style.display = "none";
+		restoreSecondaryDrawerBodyOverflow();
+		return;
+	}
+
+	if (historyProgressDrawerCloseTimeout)
+		clearTimeout(historyProgressDrawerCloseTimeout);
+	historyProgressDrawerCloseTimeout = setTimeout(() => {
+		drawer.classList.add("hidden");
+		historyProgressPortal.style.display = "none";
+		restoreSecondaryDrawerBodyOverflow();
+	}, 220);
+}
+
+function openNutritionProgressDrawer() {
+	ensureSecondaryDrawerOverlay("nutrition");
+	const drawer = $("nutrition-progress-drawer");
+	const btn = $("nutrition-progress-drawer-btn");
+	if (!drawer || !nutritionProgressPortal) return;
+
+	if (nutritionProgressDrawerCloseTimeout) {
+		clearTimeout(nutritionProgressDrawerCloseTimeout);
+		nutritionProgressDrawerCloseTimeout = null;
+	}
+	closeHistoryProgressDrawer(true);
+
+	if (bodyOverflowBeforeSecondaryDrawers === null)
+		bodyOverflowBeforeSecondaryDrawers = document.body.style.overflow || "";
+	document.body.style.overflow = "hidden";
+
+	nutritionProgressPortal.style.display = "block";
+	drawer.classList.remove("hidden");
+	requestAnimationFrame(() => drawer.classList.add("is-open"));
+	nutritionProgressOverlayOpen = true;
+	if (btn) btn.setAttribute("aria-expanded", "true");
+	renderCalories();
+}
+
+function closeNutritionProgressDrawer(forceImmediate = false) {
+	const drawer = $("nutrition-progress-drawer");
+	const btn = $("nutrition-progress-drawer-btn");
+	if (!drawer || !nutritionProgressPortal) {
+		nutritionProgressOverlayOpen = false;
+		if (btn) btn.setAttribute("aria-expanded", "false");
+		restoreSecondaryDrawerBodyOverflow();
+		return;
+	}
+
+	nutritionProgressOverlayOpen = false;
+	if (btn) btn.setAttribute("aria-expanded", "false");
+	drawer.classList.remove("is-open");
+
+	if (forceImmediate) {
+		drawer.classList.add("hidden");
+		nutritionProgressPortal.style.display = "none";
+		restoreSecondaryDrawerBodyOverflow();
+		return;
+	}
+
+	if (nutritionProgressDrawerCloseTimeout)
+		clearTimeout(nutritionProgressDrawerCloseTimeout);
+	nutritionProgressDrawerCloseTimeout = setTimeout(() => {
+		drawer.classList.add("hidden");
+		nutritionProgressPortal.style.display = "none";
+		restoreSecondaryDrawerBodyOverflow();
+	}, 220);
+}
+
+function closeSecondaryDrawers(forceImmediate = false) {
+	closeHistoryProgressDrawer(forceImmediate);
+	closeNutritionProgressDrawer(forceImmediate);
+}
+
 function initTabs() {
 	document.querySelectorAll("nav .nav-btn").forEach((btn) => {
 		btn.addEventListener("click", (e) => {
@@ -2523,6 +2725,7 @@ function initTabs() {
 
 			// ✅ Notes is now an overlay, not a real tab switch
 			if (tab === "notes") {
+				closeSecondaryDrawers(true);
 				if (notesOverlayOpen) closeNotesDrawer();
 				else openNotesDrawer();
 				return;
@@ -2530,6 +2733,7 @@ function initTabs() {
 
 			// Switching tabs should close notes overlay if open
 			if (notesOverlayOpen) closeNotesDrawer();
+			closeSecondaryDrawers(true);
 
 			switchTab(tab);
 		});
@@ -2541,6 +2745,7 @@ function initTabs() {
 function switchTab(tab) {
 	currentTab = tab;
 	if (tab !== "notes") _lastNonNotesTab = tab;
+	closeSecondaryDrawers(true);
 
 	["timer", "history", "calories", "settings"].forEach((id) => {
 		const section = $(`tab-${id}`);
@@ -3953,6 +4158,20 @@ function initButtons() {
 		openCalorieTargetDrawer,
 	);
 	$("calorie-goal-drawer-btn").addEventListener("click", openCalorieGoalDrawer);
+	$("history-progress-drawer-btn").addEventListener(
+		"click",
+		openHistoryProgressDrawer,
+	);
+	$("history-progress-close").addEventListener("click", () =>
+		closeHistoryProgressDrawer(),
+	);
+	$("nutrition-progress-drawer-btn").addEventListener(
+		"click",
+		openNutritionProgressDrawer,
+	);
+	$("nutrition-progress-close").addEventListener("click", () =>
+		closeNutritionProgressDrawer(),
+	);
 	$("calorie-target-close").addEventListener("click", closeCalorieTargetDrawer);
 	$("calorie-goal-close").addEventListener("click", closeCalorieGoalDrawer);
 	const calorieTargetBackdrop = document.querySelector(
