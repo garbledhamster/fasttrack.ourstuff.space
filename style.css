@@ -628,6 +628,12 @@ body.bg-slate-950 {
 	color: var(--text-color);
 }
 
+.button-accent {
+	background-color: var(--secondary-color);
+	border-color: var(--secondary-color);
+	color: var(--background-color);
+}
+
 .button-outline {
 	background-color: var(--surface-color);
 	border-color: var(--border-color);

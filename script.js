@@ -404,6 +404,7 @@ let notesBackdrop = null;
 let bodyOverflowBeforeNotes = null;
 let notesSwipeHandlersAttached = false;
 let aiTrainerNotesRangeOverride = null;
+let aiTrainerNoteAbortController = null;
 let historyProgressOverlayOpen = false;
 let historyProgressPortal = null;
 let historyProgressDrawerCloseTimeout = null;
@@ -2753,7 +2754,7 @@ function openNotesDrawer() {
 
 	notesOverlayOpen = true;
 	setNotesNavActive(true);
-	aiTrainerNotesRangeOverride = null;
+	seedAITrainerNotesRangeOverride();
 	renderNotes();
 }
 
@@ -2762,6 +2763,7 @@ function closeNotesDrawer(forceImmediate = false) {
 	if (!drawer || !notesPortal) {
 		notesOverlayOpen = false;
 		setNotesNavActive(false);
+		clearAITrainerNotesRangeOverride();
 		if (bodyOverflowBeforeNotes !== null) {
 			document.body.style.overflow = bodyOverflowBeforeNotes;
 			bodyOverflowBeforeNotes = null;
@@ -2771,6 +2773,7 @@ function closeNotesDrawer(forceImmediate = false) {
 
 	notesOverlayOpen = false;
 	setNotesNavActive(false);
+	clearAITrainerNotesRangeOverride();
 
 	drawer.classList.remove("is-open");
 
@@ -4211,6 +4214,15 @@ function getAITrainerNotesRangeOverride() {
 		: normalizeOpenAINotesRange(aiTrainerNotesRangeOverride);
 }
 
+function seedAITrainerNotesRangeOverride() {
+	aiTrainerNotesRangeOverride = getGlobalTrainerContextRange();
+	renderAITrainerNotesRangeOverride();
+}
+
+function clearAITrainerNotesRangeOverride() {
+	aiTrainerNotesRangeOverride = null;
+}
+
 function getTrainerRangeCutoff(range, now = Date.now()) {
 	if (range === OPENAI_NOTES_TODAY_RANGE) {
 		const d = new Date(now);
@@ -4640,6 +4652,7 @@ async function callAIChatCompletions({
 	userPrompt,
 	purpose,
 	withReasoningFallback = false,
+	signal = null,
 }) {
 	const config = getAIProviderSettings();
 	if (!config.apiUrl) {
@@ -4701,6 +4714,7 @@ async function callAIChatCompletions({
 		method: "POST",
 		headers,
 		body: JSON.stringify(requestBody),
+		signal,
 	});
 	if (!response.ok) {
 		let errorPayload = null;
@@ -4843,7 +4857,7 @@ async function estimateCaloriesWithAI(foodDetails) {
 	}
 }
 
-async function generateTrainerNoteWithAI(rangeOverride = null) {
+async function generateTrainerNoteWithAI(rangeOverride = null, signal = null) {
 	const provider = normalizeLLMProvider(state.settings.llmProvider);
 	const byoLlm = normalizeByoLlmSettings(state.settings.byoLlm);
 	const trainerInstructions = String(
@@ -4878,6 +4892,7 @@ async function generateTrainerNoteWithAI(rangeOverride = null) {
 			userPrompt: userPayload,
 			purpose: "AI trainer note",
 			withReasoningFallback: true,
+			signal,
 		});
 		if (!data) return null;
 		const messageContent = data.choices?.[0]?.message?.content;
@@ -4896,6 +4911,10 @@ async function generateTrainerNoteWithAI(rangeOverride = null) {
 		}
 		return aiText;
 	} catch (error) {
+		if (error?.name === "AbortError") {
+			showToast("Cancelled AI trainer note");
+			return null;
+		}
 		console.error("Error calling AI API:", error);
 		showToast(
 			"Failed to generate trainer note. Please try again or check your AI settings.",
@@ -4904,8 +4923,8 @@ async function generateTrainerNoteWithAI(rangeOverride = null) {
 	}
 }
 
-async function addAITrainerNote(rangeOverride = null) {
-	const trainerText = await generateTrainerNoteWithAI(rangeOverride);
+async function addAITrainerNote(rangeOverride = null, signal = null) {
+	const trainerText = await generateTrainerNoteWithAI(rangeOverride, signal);
 	if (!trainerText) return false;
 	const noteId = await createNote({
 		text: trainerText,
@@ -5288,18 +5307,43 @@ function initButtons() {
 	$("edit-history-delete").addEventListener("click", deleteEditedHistoryEntry);
 
 	$("new-note-btn").addEventListener("click", () => openNoteEditor());
-	$("ai-trainer-notes-range").addEventListener("input", (event) => {
+	const updateAITrainerNotesRangeOverride = (event) => {
 		aiTrainerNotesRangeOverride = normalizeOpenAINotesRange(event.target.value);
 		renderAITrainerNotesRangeOverride();
-	});
+	};
+	$("ai-trainer-notes-range").addEventListener(
+		"input",
+		updateAITrainerNotesRangeOverride,
+	);
+	$("ai-trainer-notes-range").addEventListener(
+		"change",
+		updateAITrainerNotesRangeOverride,
+	);
 	$("ai-trainer-note-btn").addEventListener("click", async () => {
 		const button = $("ai-trainer-note-btn");
+		if (aiTrainerNoteAbortController) {
+			aiTrainerNoteAbortController.abort();
+			return;
+		}
+		const abortController = new AbortController();
+		aiTrainerNoteAbortController = abortController;
 		const originalText = button.textContent;
-		button.disabled = true;
-		button.textContent = "Generating...";
-		await addAITrainerNote(getAITrainerNotesRangeOverride());
-		button.disabled = false;
-		button.textContent = originalText;
+		button.textContent = "Cancel trainer note";
+		button.classList.remove("button-accent");
+		button.classList.add("button-danger");
+		try {
+			await addAITrainerNote(
+				getAITrainerNotesRangeOverride(),
+				abortController.signal,
+			);
+		} finally {
+			if (aiTrainerNoteAbortController === abortController) {
+				aiTrainerNoteAbortController = null;
+			}
+			button.textContent = originalText;
+			button.classList.add("button-accent");
+			button.classList.remove("button-danger");
+		}
 	});
 	$("calorie-log-meal-btn").addEventListener("click", () => openNoteEditor());
 	const noteEditorBackdrop = document.querySelector(

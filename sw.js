@@ -1,4 +1,4 @@
-const CACHE_NAME = "fasting-tracker-v2";
+const CACHE_NAME = "fasting-tracker-v3";
 const ASSETS = [
 	"./",
 	"./index.html",
@@ -18,6 +18,7 @@ self.addEventListener("install", (event) => {
 	event.waitUntil(
 		caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)),
 	);
+	self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -28,7 +29,8 @@ self.addEventListener("activate", (event) => {
 				Promise.all(
 					keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
 				),
-			),
+			)
+			.then(() => self.clients.claim()),
 	);
 });
 
