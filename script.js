@@ -3563,9 +3563,11 @@ function getNotesForTrainer() {
 	} else if (range === 3) {
 		cutoff = now - 7 * 24 * 60 * 60 * 1000;
 	} else if (range === 4) {
-		cutoff = now - 30 * 24 * 60 * 60 * 1000;
+		const d = new Date();
+		cutoff = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
 	} else if (range === 5) {
-		cutoff = now - 365 * 24 * 60 * 60 * 1000;
+		const d = new Date();
+		cutoff = new Date(d.getFullYear(), 0, 1).getTime();
 	} else {
 		return sorted;
 	}
