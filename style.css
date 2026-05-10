@@ -961,6 +961,10 @@ body.bg-slate-950 {
 	accent-color: var(--primary-color);
 }
 
+.accent-brand-500 {
+	accent-color: var(--primary-color);
+}
+
 .theme-color-input {
 	width: 4rem;
 	height: 2.5rem;
