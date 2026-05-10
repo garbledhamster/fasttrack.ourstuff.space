@@ -920,9 +920,10 @@ function normalizeNoteMetadata(metadata, text = "") {
 	const raw = metadata && typeof metadata === "object" ? metadata : {};
 	const source = String(raw.source || "").trim();
 	const marker = String(raw.marker || "").trim();
-	const legacyAITrainerNote = String(text || "")
-		.trim()
-		.startsWith(AI_TRAINER_NOTE_TITLE);
+	const noteText = String(text || "").trim();
+	const legacyAITrainerNote =
+		noteText.startsWith(AI_TRAINER_NOTE_TITLE) ||
+		noteText.startsWith(AI_TRAINER_NOTE_HEADING);
 	const isAITrainer =
 		source === AI_TRAINER_NOTE_SOURCE ||
 		marker === AI_TRAINER_NOTE_MARKER ||
@@ -966,8 +967,16 @@ function getDisplayNoteText(note) {
 	const text = String(note?.text || "");
 	if (!isAITrainerNote(note)) return text;
 	const trimmed = text.trim();
-	if (!trimmed.startsWith(AI_TRAINER_NOTE_TITLE)) return text;
-	return trimmed.slice(AI_TRAINER_NOTE_TITLE.length).replace(/^\s+/, "");
+	const title = trimmed.startsWith(AI_TRAINER_NOTE_HEADING)
+		? AI_TRAINER_NOTE_HEADING
+		: trimmed.startsWith(AI_TRAINER_NOTE_TITLE)
+			? AI_TRAINER_NOTE_TITLE
+			: "";
+	if (!title) return text;
+	return trimmed
+		.slice(title.length)
+		.replace(/^\s*-{3,}\s*/u, "")
+		.replace(/^\s+/, "");
 }
 
 function buildInactiveFastContext() {
@@ -4182,6 +4191,7 @@ const AI_TRAINER_NOTE_PROMPT = [
 	"If information is missing, give safe, realistic suggestions and mention uncertainty briefly.",
 ].join(" ");
 const AI_TRAINER_NOTE_TITLE = "AI Trainer Note";
+const AI_TRAINER_NOTE_HEADING = "{🤖 TRAINER}";
 const AI_TRAINER_NOTE_SOURCE = "ai_trainer";
 const AI_TRAINER_NOTE_MARKER = "ai:trainer-note";
 const AI_TRAINER_NOTE_TAGS = Object.freeze([
@@ -6917,6 +6927,32 @@ function buildMarkdownNoteContent(text) {
 	return content;
 }
 
+function buildAITrainerNoteHeading() {
+	const heading = document.createElement("div");
+	heading.className = "note-trainer-heading";
+	heading.setAttribute("aria-label", "AI Trainer");
+
+	const openBrace = document.createElement("span");
+	openBrace.textContent = "{";
+
+	const icon = document.createElement("span");
+	icon.className = "note-trainer-heading-icon";
+	icon.textContent = "🤖";
+	icon.setAttribute("aria-hidden", "true");
+
+	const label = document.createElement("span");
+	label.textContent = "TRAINER";
+
+	const closeBrace = document.createElement("span");
+	closeBrace.textContent = "}";
+
+	heading.appendChild(openBrace);
+	heading.appendChild(icon);
+	heading.appendChild(label);
+	heading.appendChild(closeBrace);
+	return heading;
+}
+
 function buildNoteNutritionChips(calorieEntry) {
 	const chipSpecs = [
 		["Protein", calorieEntry?.macros?.protein, "g"],
@@ -6954,6 +6990,7 @@ function buildNoteCard(note) {
 	if (note.metadata?.marker) card.dataset.noteMarker = note.metadata.marker;
 	if (isReadOnlyNote(note)) card.dataset.readonly = "true";
 	card.addEventListener("click", () => openNoteEditor(note));
+	if (isAITrainer) card.appendChild(buildAITrainerNoteHeading());
 
 	const hasCalorieEntry = Boolean(note.calorieEntry);
 	if (hasCalorieEntry) {
