@@ -430,6 +430,15 @@
               and decrypts it only with your password.
             </p>
           </div>
+          <div>
+            <label class="block text-sm md:text-xs text-muted mb-1" for="openai-notes-range">Notes to send to trainer</label>
+            <input id="openai-notes-range" type="range" min="0" max="6" step="1" class="w-full accent-brand-500">
+            <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
+              <span>No notes</span>
+              <span id="openai-notes-range-label" class="font-medium text-default">No notes</span>
+              <span>All notes</span>
+            </div>
+          </div>
         </div>
 
         <div class="mt-4 space-y-3">
