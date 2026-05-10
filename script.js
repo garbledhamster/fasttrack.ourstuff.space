@@ -5080,7 +5080,10 @@ async function generateTrainerNoteWithAI(
 			: state.settings.openaiTrainerInstructions || "",
 	).trim();
 	const profile = buildGoalRecommendationProfile();
-	const trainerContext = buildTrainerContinuityContext(rangeOverride, provider);
+	const trainerContext = buildTrainerContinuityContext(
+		rangeOverride,
+		providerOverride,
+	);
 	const todayKey = formatDateKey(new Date());
 	const todayCalories = getNoteCaloriesForDateKey(todayKey);
 	const todayNutrition = formatNutritionInlineSummary(todayKey);
@@ -5660,7 +5663,7 @@ function initButtons() {
 	const updateAITrainerNotesRangeOverride = (event) => {
 		aiTrainerNotesRangeOverride = normalizeOpenAINotesRange(event.target.value);
 		renderAITrainerNotesRangeOverride();
-		renderNotesTab();
+		renderNotes();
 	};
 	$("ai-trainer-notes-range").addEventListener(
 		"input",
@@ -5742,6 +5745,7 @@ function initButtons() {
 				quickTrainerQuestionAbortController = null;
 			}
 			button.textContent = originalText;
+			button.disabled = false;
 			renderTrainerQuickQuestionInput();
 		}
 	});
