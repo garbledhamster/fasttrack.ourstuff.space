@@ -270,9 +270,12 @@ const OPENAI_ALLOWED_MODELS = Object.freeze([
 	"gpt-5.4-mini",
 ]);
 const DEFAULT_OPENAI_MODEL = OPENAI_ALLOWED_MODELS[0];
+const SUPPORTED_LLM_PROVIDERS = new Set(["openai", "byo"]);
+const DEFAULT_LLM_PROVIDER = "openai";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
 const OPENAI_MAX_TOKENS_WITH_REASONING = 4096;
 const OPENAI_MAX_TOKENS_STANDARD = 320;
+const Z_INDEX_OVERLAY_PORTAL = 11000;
 const MAX_IMPERIAL_HEIGHT_PART = 11;
 const VALID_CALORIE_GOALS = new Set(["lose", "maintain", "gain"]);
 const defaultState = {
@@ -283,11 +286,21 @@ const defaultState = {
 		alertsEnabled: false,
 		showRingEmojis: true,
 		timeDisplayMode: "elapsed",
+		llmProvider: DEFAULT_LLM_PROVIDER,
 		openaiApiKey: "",
 		openaiModel: DEFAULT_OPENAI_MODEL,
 		openaiReasoningEffort: "none",
 		openaiTrainerInstructions: "",
 		openaiNotesRange: 0,
+		byoLlm: {
+			apiUrl: "",
+			apiKey: "",
+			model: "",
+			reasoningEffort: "none",
+			maxCompletionTokens: OPENAI_MAX_TOKENS_WITH_REASONING,
+			temperature: 1,
+			headersJson: "",
+		},
 		calories: {
 			dailyTarget: null,
 			goal: "",
@@ -386,9 +399,21 @@ let notesSwipeHandlersAttached = false;
 let historyProgressOverlayOpen = false;
 let historyProgressPortal = null;
 let historyProgressDrawerCloseTimeout = null;
+let historyNotesOverlayOpen = false;
+let historyNotesPortal = null;
+let historyNotesDrawerCloseTimeout = null;
+let recentFastsOverlayOpen = false;
+let recentFastsPortal = null;
+let recentFastsDrawerCloseTimeout = null;
 let nutritionProgressOverlayOpen = false;
 let nutritionProgressPortal = null;
 let nutritionProgressDrawerCloseTimeout = null;
+let calorieTargetOverlayOpen = false;
+let calorieTargetPortal = null;
+let calorieTargetDrawerCloseTimeout = null;
+let calorieGoalOverlayOpen = false;
+let calorieGoalPortal = null;
+let calorieGoalDrawerCloseTimeout = null;
 let bodyOverflowBeforeSecondaryDrawers = null;
 let secondaryDrawerEscapeHandlerAttached = false;
 let noteEditorSwipeHandlersAttached = false;
@@ -1552,6 +1577,9 @@ function mergeStateWithDefaults(parsed) {
 		parsedTheme,
 	);
 	merged.settings.calories = mergeCalorieSettings(parsedSettings.calories);
+	merged.settings.llmProvider = normalizeLLMProvider(
+		merged.settings.llmProvider,
+	);
 	merged.settings.openaiModel = normalizeOpenAIModel(
 		merged.settings.openaiModel,
 	);
@@ -1565,6 +1593,7 @@ function mergeStateWithDefaults(parsed) {
 	merged.settings.openaiNotesRange = normalizeOpenAINotesRange(
 		merged.settings.openaiNotesRange,
 	);
+	merged.settings.byoLlm = normalizeByoLlmSettings(merged.settings.byoLlm);
 	merged.activeFast = parsed.activeFast || null;
 	merged.history = Array.isArray(parsed.history) ? parsed.history : [];
 	merged.reminders = Object.assign(merged.reminders, parsed.reminders || {});
@@ -1917,6 +1946,9 @@ async function loadState() {
 			if (secureKeys.openaikey) {
 				newState.settings.openaiApiKey = secureKeys.openaikey;
 			}
+			if (secureKeys.byollmapikey) {
+				newState.settings.byoLlm.apiKey = secureKeys.byollmapikey;
+			}
 		} catch (err) {
 			console.error("Failed to load secure keys:", err);
 		}
@@ -1947,6 +1979,9 @@ async function loadState() {
 			const secureKeys = await loadSecureKeys();
 			if (secureKeys.openaikey) {
 				mergedState.settings.openaiApiKey = secureKeys.openaikey;
+			}
+			if (secureKeys.byollmapikey) {
+				mergedState.settings.byoLlm.apiKey = secureKeys.byollmapikey;
 			}
 		} catch (err) {
 			console.error("Failed to load secure keys:", err);
@@ -2353,7 +2388,7 @@ function ensureNotesOverlay() {
 	notesPortal.id = "notes-portal";
 	notesPortal.style.position = "fixed";
 	notesPortal.style.inset = "0";
-	notesPortal.style.zIndex = "9999";
+	notesPortal.style.zIndex = String(Z_INDEX_OVERLAY_PORTAL);
 	notesPortal.style.display = "none";
 	notesPortal.style.pointerEvents = "auto";
 	notesPortal.style.touchAction = "pan-y";
@@ -2518,26 +2553,13 @@ function closeNotesDrawer(forceImmediate = false) {
 }
 
 function ensureSecondaryDrawerOverlay(drawerType) {
-	let drawer = null;
-	let portalRef = null;
-	let closeFn = null;
-
-	if (drawerType === "history") {
-		drawer = $("history-progress-drawer");
-		portalRef = historyProgressPortal;
-		closeFn = () => closeHistoryProgressDrawer();
-	} else if (drawerType === "nutrition") {
-		drawer = $("nutrition-progress-drawer");
-		portalRef = nutritionProgressPortal;
-		closeFn = () => closeNutritionProgressDrawer();
-	}
-
-	if (!drawer || portalRef) return;
+	const drawerMeta = getSecondaryDrawerMeta(drawerType);
+	if (!drawerMeta?.drawer || drawerMeta.getPortal()) return;
 
 	const portal = document.createElement("div");
 	portal.style.position = "fixed";
 	portal.style.inset = "0";
-	portal.style.zIndex = "9999";
+	portal.style.zIndex = String(Z_INDEX_OVERLAY_PORTAL);
 	portal.style.display = "none";
 	portal.style.pointerEvents = "auto";
 	portal.style.touchAction = "pan-y";
@@ -2551,164 +2573,286 @@ function ensureSecondaryDrawerOverlay(drawerType) {
 	backdrop.style.webkitBackdropFilter = "blur(2px)";
 
 	portal.appendChild(backdrop);
-	portal.appendChild(drawer);
+	portal.appendChild(drawerMeta.drawer);
 
-	drawer.style.position = "absolute";
-	drawer.style.top = "0";
-	drawer.style.right = "0";
-	drawer.style.bottom = "0";
-	drawer.style.left = "auto";
-	drawer.style.width = "min(420px, 100vw)";
-	drawer.style.maxWidth = "100vw";
-	drawer.style.height = "100%";
-	drawer.style.overflow = "auto";
-	drawer.style.zIndex = "10000";
+	drawerMeta.drawer.style.position = "absolute";
+	drawerMeta.drawer.style.top = "0";
+	drawerMeta.drawer.style.right = "0";
+	drawerMeta.drawer.style.bottom = "0";
+	drawerMeta.drawer.style.left = "auto";
+	drawerMeta.drawer.style.width = "min(420px, 100vw)";
+	drawerMeta.drawer.style.maxWidth = "100vw";
+	drawerMeta.drawer.style.height = "100%";
+	drawerMeta.drawer.style.overflow = "auto";
+	drawerMeta.drawer.style.zIndex = "10000";
 
-	drawer.addEventListener("mousedown", (e) => e.stopPropagation());
-	drawer.addEventListener("touchstart", (e) => e.stopPropagation(), {
+	drawerMeta.drawer.addEventListener("mousedown", (e) => e.stopPropagation());
+	drawerMeta.drawer.addEventListener("touchstart", (e) => e.stopPropagation(), {
 		passive: true,
 	});
-	drawer.addEventListener("click", (e) => e.stopPropagation());
+	drawerMeta.drawer.addEventListener("click", (e) => e.stopPropagation());
 
-	backdrop.addEventListener("click", closeFn);
+	backdrop.addEventListener("click", () => closeSecondaryDrawer(drawerType));
 	document.body.appendChild(portal);
-
-	if (drawerType === "history") {
-		historyProgressPortal = portal;
-	} else if (drawerType === "nutrition") {
-		nutritionProgressPortal = portal;
-	}
+	drawerMeta.setPortal(portal);
 
 	if (!secondaryDrawerEscapeHandlerAttached) {
 		secondaryDrawerEscapeHandlerAttached = true;
 		document.addEventListener("keydown", (e) => {
 			if (e.key !== "Escape") return;
-			if (historyProgressOverlayOpen) closeHistoryProgressDrawer();
-			if (nutritionProgressOverlayOpen) closeNutritionProgressDrawer();
+			closeSecondaryDrawers();
 		});
 	}
 }
 
+function getSecondaryDrawerMeta(drawerType) {
+	const drawerMap = {
+		history: {
+			drawer: $("history-progress-drawer"),
+			getPortal: () => historyProgressPortal,
+			setPortal: (portal) => {
+				historyProgressPortal = portal;
+			},
+			getOpen: () => historyProgressOverlayOpen,
+			setOpen: (open) => {
+				historyProgressOverlayOpen = open;
+			},
+			getCloseTimeout: () => historyProgressDrawerCloseTimeout,
+			setCloseTimeout: (timeout) => {
+				historyProgressDrawerCloseTimeout = timeout;
+			},
+			button: $("history-progress-drawer-btn"),
+		},
+		historyNotes: {
+			drawer: $("history-notes-drawer"),
+			getPortal: () => historyNotesPortal,
+			setPortal: (portal) => {
+				historyNotesPortal = portal;
+			},
+			getOpen: () => historyNotesOverlayOpen,
+			setOpen: (open) => {
+				historyNotesOverlayOpen = open;
+			},
+			getCloseTimeout: () => historyNotesDrawerCloseTimeout,
+			setCloseTimeout: (timeout) => {
+				historyNotesDrawerCloseTimeout = timeout;
+			},
+			button: $("history-notes-drawer-btn"),
+		},
+		recentFasts: {
+			drawer: $("recent-fasts-drawer"),
+			getPortal: () => recentFastsPortal,
+			setPortal: (portal) => {
+				recentFastsPortal = portal;
+			},
+			getOpen: () => recentFastsOverlayOpen,
+			setOpen: (open) => {
+				recentFastsOverlayOpen = open;
+			},
+			getCloseTimeout: () => recentFastsDrawerCloseTimeout,
+			setCloseTimeout: (timeout) => {
+				recentFastsDrawerCloseTimeout = timeout;
+			},
+			button: $("recent-fasts-drawer-btn"),
+		},
+		nutrition: {
+			drawer: $("nutrition-progress-drawer"),
+			getPortal: () => nutritionProgressPortal,
+			setPortal: (portal) => {
+				nutritionProgressPortal = portal;
+			},
+			getOpen: () => nutritionProgressOverlayOpen,
+			setOpen: (open) => {
+				nutritionProgressOverlayOpen = open;
+			},
+			getCloseTimeout: () => nutritionProgressDrawerCloseTimeout,
+			setCloseTimeout: (timeout) => {
+				nutritionProgressDrawerCloseTimeout = timeout;
+			},
+			button: $("nutrition-progress-drawer-btn"),
+		},
+		calorieTarget: {
+			drawer: $("calorie-target-drawer"),
+			getPortal: () => calorieTargetPortal,
+			setPortal: (portal) => {
+				calorieTargetPortal = portal;
+			},
+			getOpen: () => calorieTargetOverlayOpen,
+			setOpen: (open) => {
+				calorieTargetOverlayOpen = open;
+			},
+			getCloseTimeout: () => calorieTargetDrawerCloseTimeout,
+			setCloseTimeout: (timeout) => {
+				calorieTargetDrawerCloseTimeout = timeout;
+			},
+			button: $("calorie-target-drawer-btn"),
+		},
+		calorieGoal: {
+			drawer: $("calorie-goal-drawer"),
+			getPortal: () => calorieGoalPortal,
+			setPortal: (portal) => {
+				calorieGoalPortal = portal;
+			},
+			getOpen: () => calorieGoalOverlayOpen,
+			setOpen: (open) => {
+				calorieGoalOverlayOpen = open;
+			},
+			getCloseTimeout: () => calorieGoalDrawerCloseTimeout,
+			setCloseTimeout: (timeout) => {
+				calorieGoalDrawerCloseTimeout = timeout;
+			},
+			button: $("calorie-goal-drawer-btn"),
+		},
+	};
+	return drawerMap[drawerType] || null;
+}
+
 function restoreSecondaryDrawerBodyOverflow() {
-	if (historyProgressOverlayOpen || nutritionProgressOverlayOpen) return;
+	if (
+		historyProgressOverlayOpen ||
+		historyNotesOverlayOpen ||
+		recentFastsOverlayOpen ||
+		nutritionProgressOverlayOpen ||
+		calorieTargetOverlayOpen ||
+		calorieGoalOverlayOpen
+	)
+		return;
 	if (bodyOverflowBeforeSecondaryDrawers !== null) {
 		document.body.style.overflow = bodyOverflowBeforeSecondaryDrawers;
 		bodyOverflowBeforeSecondaryDrawers = null;
 	}
 }
 
-function openHistoryProgressDrawer() {
-	ensureSecondaryDrawerOverlay("history");
-	const drawer = $("history-progress-drawer");
-	const btn = $("history-progress-drawer-btn");
-	if (!drawer || !historyProgressPortal) return;
+function openSecondaryDrawer(drawerType, onOpen) {
+	ensureSecondaryDrawerOverlay(drawerType);
+	const drawerMeta = getSecondaryDrawerMeta(drawerType);
+	if (!drawerMeta?.drawer || !drawerMeta.getPortal()) return;
 
-	if (historyProgressDrawerCloseTimeout) {
-		clearTimeout(historyProgressDrawerCloseTimeout);
-		historyProgressDrawerCloseTimeout = null;
+	const existingCloseTimeout = drawerMeta.getCloseTimeout();
+	if (existingCloseTimeout) {
+		clearTimeout(existingCloseTimeout);
+		drawerMeta.setCloseTimeout(null);
 	}
-	closeNutritionProgressDrawer(true);
+	closeSecondaryDrawers(true, drawerType);
 
 	if (bodyOverflowBeforeSecondaryDrawers === null)
 		bodyOverflowBeforeSecondaryDrawers = document.body.style.overflow || "";
 	document.body.style.overflow = "hidden";
 
-	historyProgressPortal.style.display = "block";
-	drawer.classList.remove("hidden");
-	requestAnimationFrame(() => drawer.classList.add("is-open"));
-	historyProgressOverlayOpen = true;
-	if (btn) btn.setAttribute("aria-expanded", "true");
-	renderDayDetails();
-	renderNotes();
+	drawerMeta.getPortal().style.display = "block";
+	drawerMeta.drawer.classList.remove("hidden");
+	requestAnimationFrame(() => drawerMeta.drawer.classList.add("is-open"));
+	drawerMeta.setOpen(true);
+	if (drawerMeta.button)
+		drawerMeta.button.setAttribute("aria-expanded", "true");
+	if (typeof onOpen === "function") onOpen();
+}
+
+function closeSecondaryDrawer(drawerType, forceImmediate = false) {
+	const drawerMeta = getSecondaryDrawerMeta(drawerType);
+	if (!drawerMeta?.drawer || !drawerMeta.getPortal()) {
+		if (drawerMeta) {
+			drawerMeta.setOpen(false);
+			if (drawerMeta.button)
+				drawerMeta.button.setAttribute("aria-expanded", "false");
+		}
+		restoreSecondaryDrawerBodyOverflow();
+		return;
+	}
+
+	drawerMeta.setOpen(false);
+	if (drawerMeta.button)
+		drawerMeta.button.setAttribute("aria-expanded", "false");
+	drawerMeta.drawer.classList.remove("is-open");
+
+	if (forceImmediate) {
+		drawerMeta.drawer.classList.add("hidden");
+		drawerMeta.getPortal().style.display = "none";
+		restoreSecondaryDrawerBodyOverflow();
+		return;
+	}
+
+	const existingCloseTimeout = drawerMeta.getCloseTimeout();
+	if (existingCloseTimeout) clearTimeout(existingCloseTimeout);
+	drawerMeta.setCloseTimeout(
+		setTimeout(() => {
+			drawerMeta.drawer.classList.add("hidden");
+			drawerMeta.getPortal().style.display = "none";
+			drawerMeta.setCloseTimeout(null);
+			restoreSecondaryDrawerBodyOverflow();
+		}, 220),
+	);
+}
+
+function openHistoryProgressDrawer() {
+	openSecondaryDrawer("history", () => {
+		renderDayDetails();
+	});
 }
 
 function closeHistoryProgressDrawer(forceImmediate = false) {
-	const drawer = $("history-progress-drawer");
-	const btn = $("history-progress-drawer-btn");
-	if (!drawer || !historyProgressPortal) {
-		historyProgressOverlayOpen = false;
-		if (btn) btn.setAttribute("aria-expanded", "false");
-		restoreSecondaryDrawerBodyOverflow();
-		return;
-	}
+	closeSecondaryDrawer("history", forceImmediate);
+}
 
-	historyProgressOverlayOpen = false;
-	if (btn) btn.setAttribute("aria-expanded", "false");
-	drawer.classList.remove("is-open");
+function openHistoryNotesDrawer() {
+	openSecondaryDrawer("historyNotes", () => {
+		renderHistoryNotes();
+	});
+}
 
-	if (forceImmediate) {
-		drawer.classList.add("hidden");
-		historyProgressPortal.style.display = "none";
-		restoreSecondaryDrawerBodyOverflow();
-		return;
-	}
+function closeHistoryNotesDrawer(forceImmediate = false) {
+	closeSecondaryDrawer("historyNotes", forceImmediate);
+}
 
-	if (historyProgressDrawerCloseTimeout)
-		clearTimeout(historyProgressDrawerCloseTimeout);
-	historyProgressDrawerCloseTimeout = setTimeout(() => {
-		drawer.classList.add("hidden");
-		historyProgressPortal.style.display = "none";
-		restoreSecondaryDrawerBodyOverflow();
-	}, 220);
+function openRecentFastsDrawer() {
+	openSecondaryDrawer("recentFasts", () => {
+		renderRecentFasts();
+	});
+}
+
+function closeRecentFastsDrawer(forceImmediate = false) {
+	closeSecondaryDrawer("recentFasts", forceImmediate);
 }
 
 function openNutritionProgressDrawer() {
-	ensureSecondaryDrawerOverlay("nutrition");
-	const drawer = $("nutrition-progress-drawer");
-	const btn = $("nutrition-progress-drawer-btn");
-	if (!drawer || !nutritionProgressPortal) return;
-
-	if (nutritionProgressDrawerCloseTimeout) {
-		clearTimeout(nutritionProgressDrawerCloseTimeout);
-		nutritionProgressDrawerCloseTimeout = null;
-	}
-	closeHistoryProgressDrawer(true);
-
-	if (bodyOverflowBeforeSecondaryDrawers === null)
-		bodyOverflowBeforeSecondaryDrawers = document.body.style.overflow || "";
-	document.body.style.overflow = "hidden";
-
-	nutritionProgressPortal.style.display = "block";
-	drawer.classList.remove("hidden");
-	requestAnimationFrame(() => drawer.classList.add("is-open"));
-	nutritionProgressOverlayOpen = true;
-	if (btn) btn.setAttribute("aria-expanded", "true");
-	renderCalories();
+	openSecondaryDrawer("nutrition", () => {
+		renderCalories();
+	});
 }
 
 function closeNutritionProgressDrawer(forceImmediate = false) {
-	const drawer = $("nutrition-progress-drawer");
-	const btn = $("nutrition-progress-drawer-btn");
-	if (!drawer || !nutritionProgressPortal) {
-		nutritionProgressOverlayOpen = false;
-		if (btn) btn.setAttribute("aria-expanded", "false");
-		restoreSecondaryDrawerBodyOverflow();
-		return;
-	}
-
-	nutritionProgressOverlayOpen = false;
-	if (btn) btn.setAttribute("aria-expanded", "false");
-	drawer.classList.remove("is-open");
-
-	if (forceImmediate) {
-		drawer.classList.add("hidden");
-		nutritionProgressPortal.style.display = "none";
-		restoreSecondaryDrawerBodyOverflow();
-		return;
-	}
-
-	if (nutritionProgressDrawerCloseTimeout)
-		clearTimeout(nutritionProgressDrawerCloseTimeout);
-	nutritionProgressDrawerCloseTimeout = setTimeout(() => {
-		drawer.classList.add("hidden");
-		nutritionProgressPortal.style.display = "none";
-		restoreSecondaryDrawerBodyOverflow();
-	}, 220);
+	closeSecondaryDrawer("nutrition", forceImmediate);
 }
 
-function closeSecondaryDrawers(forceImmediate = false) {
-	closeHistoryProgressDrawer(forceImmediate);
-	closeNutritionProgressDrawer(forceImmediate);
+function openCalorieTargetDrawer() {
+	openSecondaryDrawer("calorieTarget");
+}
+
+function closeCalorieTargetDrawer(forceImmediate = false) {
+	closeSecondaryDrawer("calorieTarget", forceImmediate);
+}
+
+function openCalorieGoalDrawer() {
+	openSecondaryDrawer("calorieGoal");
+}
+
+function closeCalorieGoalDrawer(forceImmediate = false) {
+	closeSecondaryDrawer("calorieGoal", forceImmediate);
+}
+
+function closeSecondaryDrawers(forceImmediate = false, exceptType = null) {
+	const drawerTypes = [
+		"history",
+		"historyNotes",
+		"recentFasts",
+		"nutrition",
+		"calorieTarget",
+		"calorieGoal",
+	];
+	drawerTypes.forEach((drawerType) => {
+		if (drawerType === exceptType) return;
+		closeSecondaryDrawer(drawerType, forceImmediate);
+	});
 }
 
 function initTabs() {
@@ -3728,6 +3872,21 @@ function normalizeOpenAIModel(value) {
 		: DEFAULT_OPENAI_MODEL;
 }
 
+/**
+ * Normalize a persisted/provider input value to a supported LLM provider id.
+ * Returns the default provider when the input is missing or unsupported.
+ * @param {unknown} value
+ * @returns {string}
+ */
+function normalizeLLMProvider(value) {
+	const normalized = String(value || "")
+		.trim()
+		.toLowerCase();
+	return SUPPORTED_LLM_PROVIDERS.has(normalized)
+		? normalized
+		: DEFAULT_LLM_PROVIDER;
+}
+
 function normalizeOpenAIReasoningEffort(value) {
 	if (!value) return "none";
 	const next = String(value || "")
@@ -3783,6 +3942,84 @@ function sanitizeBearerToken(value) {
 	const token = String(value || "").trim();
 	if (!token || /[\r\n]/.test(token)) return "";
 	return token;
+}
+
+function normalizeByoLlmSettings(value) {
+	const raw = value && typeof value === "object" ? value : {};
+	const maxCompletionTokens = Number(raw.maxCompletionTokens);
+	const temperature = Number(raw.temperature);
+	return {
+		apiUrl: String(raw.apiUrl || "").trim(),
+		apiKey: sanitizeBearerToken(raw.apiKey),
+		model: String(raw.model || "").trim(),
+		reasoningEffort: normalizeOpenAIReasoningEffort(raw.reasoningEffort),
+		maxCompletionTokens:
+			Number.isFinite(maxCompletionTokens) && maxCompletionTokens > 0
+				? Math.round(maxCompletionTokens)
+				: OPENAI_MAX_TOKENS_WITH_REASONING,
+		temperature:
+			Number.isFinite(temperature) && temperature >= 0 && temperature <= 2
+				? temperature
+				: 1,
+		headersJson:
+			typeof raw.headersJson === "string" ? raw.headersJson.trim() : "",
+	};
+}
+
+function parseByoLlmHeaders(headersText) {
+	if (!headersText?.trim()) return {};
+	try {
+		const parsed = JSON.parse(headersText);
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+			return null;
+		const headers = {};
+		for (const [key, value] of Object.entries(parsed)) {
+			const headerKey = String(key || "").trim();
+			if (!headerKey || /[\r\n]/.test(headerKey)) continue;
+			if (value === null || value === undefined) continue;
+			const headerValue = String(value).trim();
+			if (!headerValue || /[\r\n]/.test(headerValue)) continue;
+			headers[headerKey] = headerValue;
+		}
+		return headers;
+	} catch {
+		return null;
+	}
+}
+
+function getAIProviderSettings() {
+	const provider = normalizeLLMProvider(state.settings.llmProvider);
+	const byo = normalizeByoLlmSettings(state.settings.byoLlm);
+	if (provider === "byo") {
+		return {
+			provider,
+			apiUrl: byo.apiUrl,
+			apiKey: byo.apiKey,
+			model: byo.model,
+			reasoningEffort: byo.reasoningEffort,
+			maxCompletionTokens: byo.maxCompletionTokens,
+			temperature: byo.temperature,
+			headers: parseByoLlmHeaders(byo.headersJson),
+		};
+	}
+	return {
+		provider: "openai",
+		apiUrl: "https://api.openai.com/v1/chat/completions",
+		apiKey: sanitizeBearerToken(state.settings.openaiApiKey),
+		model: normalizeOpenAIModel(state.settings.openaiModel),
+		reasoningEffort: normalizeOpenAIReasoningEffort(
+			state.settings.openaiReasoningEffort,
+		),
+		maxCompletionTokens: OPENAI_MAX_TOKENS_STANDARD,
+		temperature: 1,
+		headers: {},
+	};
+}
+
+function getMaxCompletionTokens(config, usingReasoning) {
+	if (!usingReasoning) return config.maxCompletionTokens;
+	if (config.provider !== "openai") return config.maxCompletionTokens;
+	return Math.max(config.maxCompletionTokens, OPENAI_MAX_TOKENS_WITH_REASONING);
 }
 
 function isAllowedOpenAIModel(modelId) {
@@ -3911,19 +4148,91 @@ function buildGoalRecommendationProfile() {
 	};
 }
 
-async function recommendGoalPlanWithAI() {
-	const apiKey = sanitizeBearerToken(state.settings.openaiApiKey);
-	const model = normalizeOpenAIModel(state.settings.openaiModel);
-	const reasoningEffort = normalizeOpenAIReasoningEffort(
-		state.settings.openaiReasoningEffort,
-	);
-	const trainerInstructions = String(
-		state.settings.openaiTrainerInstructions || "",
-	).trim();
-	if (!apiKey) {
+async function callAIChatCompletions({
+	systemPrompt,
+	userPrompt,
+	purpose,
+	withReasoningFallback = false,
+}) {
+	const config = getAIProviderSettings();
+	if (!config.apiUrl) {
+		showToast(
+			config.provider === "openai"
+				? "OpenAI API endpoint is missing in settings"
+				: "Please add your BYO API endpoint in settings first",
+		);
+		return null;
+	}
+	if (!config.model) {
+		showToast(
+			config.provider === "openai"
+				? "Please select an OpenAI model in settings first"
+				: "Please add your BYO model name in settings first",
+		);
+		return null;
+	}
+	if (!config.apiKey && config.provider === "openai") {
 		showToast("Please add your OpenAI API key in settings first");
 		return null;
 	}
+	if (config.provider === "byo" && config.headers === null) {
+		showToast("Bring your own LLM headers must be valid JSON");
+		return null;
+	}
+
+	const usingReasoning =
+		config.reasoningEffort !== "none" &&
+		(config.provider === "byo" || supportsReasoningEffort(config.model));
+	const requestBody = {
+		model: config.model,
+		messages: [
+			{ role: "system", content: systemPrompt },
+			{ role: "user", content: userPrompt },
+		],
+		max_completion_tokens: getMaxCompletionTokens(config, usingReasoning),
+	};
+	if (usingReasoning) {
+		requestBody.reasoning_effort = config.reasoningEffort;
+		resetReasoningSupportToast();
+	} else if (
+		config.reasoningEffort !== "none" &&
+		config.provider === "openai"
+	) {
+		showReasoningUnsupportedToastOnce();
+	}
+	if (!usingReasoning || withReasoningFallback) {
+		requestBody.temperature = config.temperature;
+	}
+
+	const headers = {
+		"Content-Type": "application/json",
+		...(config.headers || {}),
+	};
+	if (config.apiKey) headers.Authorization = `Bearer ${config.apiKey}`;
+
+	const response = await fetch(config.apiUrl, {
+		method: "POST",
+		headers,
+		body: JSON.stringify(requestBody),
+	});
+	if (!response.ok) {
+		let errorPayload = null;
+		try {
+			errorPayload = await response.json();
+		} catch {}
+		console.error(`${purpose} API error:`, errorPayload || response.statusText);
+		showToast(
+			`API error: ${errorPayload?.error?.message || errorPayload?.message || response.statusText || "Unknown error"}`,
+		);
+		return null;
+	}
+	return await response.json();
+}
+
+async function recommendGoalPlanWithAI() {
+	const trainerInstructions = String(
+		state.settings.openaiTrainerInstructions || "",
+	).trim();
 
 	const profile = buildGoalRecommendationProfile();
 	const trainerNotes = getNotesForTrainer().map((n) => ({
@@ -3955,48 +4264,14 @@ async function recommendGoalPlanWithAI() {
 	);
 
 	try {
-		const usingReasoning =
-			reasoningEffort !== "none" && supportsReasoningEffort(model);
-		const requestBody = {
-			model,
-			messages: [
-				{
-					role: "system",
-					content: recommendationPrompt,
-				},
-				{
-					role: "user",
-					content: userPayload,
-				},
-			],
-			max_completion_tokens: usingReasoning
-				? OPENAI_MAX_TOKENS_WITH_REASONING
-				: OPENAI_MAX_TOKENS_STANDARD,
-		};
-		if (!usingReasoning) {
-			requestBody.temperature = 1;
-		}
-		if (usingReasoning) {
-			requestBody.reasoning_effort = reasoningEffort;
-			resetReasoningSupportToast();
-		} else if (reasoningEffort !== "none") {
-			showReasoningUnsupportedToastOnce();
-		}
-		const response = await fetch("https://api.openai.com/v1/chat/completions", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${apiKey}`,
-			},
-			body: JSON.stringify(requestBody),
+		const data = await callAIChatCompletions({
+			systemPrompt: recommendationPrompt,
+			userPrompt: userPayload,
+			purpose: "AI recommendation",
 		});
-		if (!response.ok) {
-			const error = await response.json();
-			console.error("OpenAI API error:", error);
-			showToast(`API error: ${error.error?.message || "Unknown error"}`);
+		if (!data) {
 			return null;
 		}
-		const data = await response.json();
 		const aiText = data.choices[0]?.message?.content?.trim() || "";
 		if (!aiText) {
 			showToast("No response from AI");
@@ -4010,18 +4285,13 @@ async function recommendGoalPlanWithAI() {
 		}
 		return recommendation;
 	} catch (error) {
-		console.error("Error calling OpenAI API:", error);
+		console.error("Error calling AI API:", error);
 		showToast("Failed to recommend goals. Check your internet connection.");
 		return null;
 	}
 }
 
 async function estimateCaloriesWithAI(noteText) {
-	const apiKey = sanitizeBearerToken(state.settings.openaiApiKey);
-	const model = normalizeOpenAIModel(state.settings.openaiModel);
-	const reasoningEffort = normalizeOpenAIReasoningEffort(
-		state.settings.openaiReasoningEffort,
-	);
 	const nutritionPrompt = [
 		"You are a precise nutritional expert.",
 		"Analyze the food information provided and reason through each nutrient carefully.",
@@ -4034,61 +4304,21 @@ async function estimateCaloriesWithAI(noteText) {
 		"Your final response must be the JSON object and nothing else.",
 	].join(" ");
 
-	if (!apiKey) {
-		showToast("Please add your OpenAI API key in settings first");
-		return null;
-	}
-
 	if (!noteText?.trim()) {
 		showToast("Please enter food information in the note first");
 		return null;
 	}
 
 	try {
-		const usingReasoning =
-			reasoningEffort !== "none" && supportsReasoningEffort(model);
-		const requestBody = {
-			model,
-			messages: [
-				{
-					role: "system",
-					content: nutritionPrompt,
-				},
-				{
-					role: "user",
-					content: noteText,
-				},
-			],
-			max_completion_tokens: usingReasoning
-				? OPENAI_MAX_TOKENS_WITH_REASONING
-				: OPENAI_MAX_TOKENS_STANDARD,
-		};
-		if (!usingReasoning) {
-			requestBody.temperature = 1;
-		}
-		if (usingReasoning) {
-			requestBody.reasoning_effort = reasoningEffort;
-			resetReasoningSupportToast();
-		} else if (reasoningEffort !== "none") {
-			showReasoningUnsupportedToastOnce();
-		}
-		const response = await fetch("https://api.openai.com/v1/chat/completions", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${apiKey}`,
-			},
-			body: JSON.stringify(requestBody),
+		const data = await callAIChatCompletions({
+			systemPrompt: nutritionPrompt,
+			userPrompt: noteText,
+			purpose: "AI nutrition estimate",
+			withReasoningFallback: true,
 		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			console.error("OpenAI API error:", error);
-			showToast(`API error: ${error.error?.message || "Unknown error"}`);
+		if (!data) {
 			return null;
 		}
-
-		const data = await response.json();
 		let aiText = data.choices[0]?.message?.content?.trim() || "";
 		if (!aiText) {
 			const toolCall = data.choices[0]?.message?.tool_calls?.find(
@@ -4113,7 +4343,7 @@ async function estimateCaloriesWithAI(noteText) {
 
 		return estimatedNutrition;
 	} catch (error) {
-		console.error("Error calling OpenAI API:", error);
+		console.error("Error calling AI API:", error);
 		showToast("Failed to estimate nutrition. Check your internet connection.");
 		return null;
 	}
@@ -4165,6 +4395,17 @@ function initButtons() {
 	$("history-progress-close").addEventListener("click", () =>
 		closeHistoryProgressDrawer(),
 	);
+	$("history-notes-drawer-btn").addEventListener(
+		"click",
+		openHistoryNotesDrawer,
+	);
+	$("history-notes-close").addEventListener("click", () =>
+		closeHistoryNotesDrawer(),
+	);
+	$("recent-fasts-drawer-btn").addEventListener("click", openRecentFastsDrawer);
+	$("recent-fasts-close").addEventListener("click", () =>
+		closeRecentFastsDrawer(),
+	);
 	$("nutrition-progress-drawer-btn").addEventListener(
 		"click",
 		openNutritionProgressDrawer,
@@ -4174,16 +4415,19 @@ function initButtons() {
 	);
 	$("calorie-target-close").addEventListener("click", closeCalorieTargetDrawer);
 	$("calorie-goal-close").addEventListener("click", closeCalorieGoalDrawer);
-	const calorieTargetBackdrop = document.querySelector(
-		"#calorie-target-drawer .absolute.inset-0",
-	);
-	if (calorieTargetBackdrop)
-		calorieTargetBackdrop.addEventListener("click", closeCalorieTargetDrawer);
-	const calorieGoalBackdrop = document.querySelector(
-		"#calorie-goal-drawer .absolute.inset-0",
-	);
-	if (calorieGoalBackdrop)
-		calorieGoalBackdrop.addEventListener("click", closeCalorieGoalDrawer);
+
+	$("llm-provider-openai").addEventListener("change", (event) => {
+		if (!event.target.checked) return;
+		state.settings.llmProvider = "openai";
+		void saveState();
+		renderSettings();
+	});
+	$("llm-provider-byo").addEventListener("change", (event) => {
+		if (!event.target.checked) return;
+		state.settings.llmProvider = "byo";
+		void saveState();
+		renderSettings();
+	});
 
 	$("toggle-end-alert").addEventListener("click", () => {
 		state.settings.notifyOnEnd = !state.settings.notifyOnEnd;
@@ -4221,6 +4465,71 @@ function initButtons() {
 			}
 		}
 		await loadOpenAIModels(true);
+		renderSettings();
+	});
+
+	$("byo-llm-api-url").addEventListener("change", (event) => {
+		state.settings.byoLlm = normalizeByoLlmSettings({
+			...state.settings.byoLlm,
+			apiUrl: event.target.value,
+		});
+		void saveState();
+		renderSettings();
+	});
+	$("byo-llm-model").addEventListener("change", (event) => {
+		state.settings.byoLlm = normalizeByoLlmSettings({
+			...state.settings.byoLlm,
+			model: event.target.value,
+		});
+		void saveState();
+		renderSettings();
+	});
+	$("byo-llm-reasoning-effort").addEventListener("change", (event) => {
+		state.settings.byoLlm = normalizeByoLlmSettings({
+			...state.settings.byoLlm,
+			reasoningEffort: event.target.value,
+		});
+		void saveState();
+		renderSettings();
+	});
+	$("byo-llm-max-tokens").addEventListener("change", (event) => {
+		state.settings.byoLlm = normalizeByoLlmSettings({
+			...state.settings.byoLlm,
+			maxCompletionTokens: event.target.value,
+		});
+		void saveState();
+		renderSettings();
+	});
+	$("byo-llm-temperature").addEventListener("change", (event) => {
+		state.settings.byoLlm = normalizeByoLlmSettings({
+			...state.settings.byoLlm,
+			temperature: event.target.value,
+		});
+		void saveState();
+		renderSettings();
+	});
+	$("byo-llm-headers").addEventListener("change", (event) => {
+		state.settings.byoLlm = normalizeByoLlmSettings({
+			...state.settings.byoLlm,
+			headersJson: event.target.value,
+		});
+		void saveState();
+		renderSettings();
+	});
+	$("byo-llm-api-key").addEventListener("change", async (event) => {
+		const apiKey = sanitizeBearerToken(event.target.value);
+		state.settings.byoLlm = normalizeByoLlmSettings({
+			...state.settings.byoLlm,
+			apiKey,
+		});
+		void saveState();
+		if (apiKey) {
+			try {
+				await saveSecureKey("byollmapikey", apiKey);
+			} catch (err) {
+				console.error("Failed to save BYO API key to user document:", err);
+			}
+		}
 		renderSettings();
 	});
 
@@ -4459,26 +4768,6 @@ function initButtons() {
 	});
 }
 
-function openCalorieTargetDrawer() {
-	$("calorie-target-drawer").classList.remove("hidden");
-	$("calorie-target-drawer-btn").setAttribute("aria-expanded", "true");
-}
-
-function closeCalorieTargetDrawer() {
-	$("calorie-target-drawer").classList.add("hidden");
-	$("calorie-target-drawer-btn").setAttribute("aria-expanded", "false");
-}
-
-function openCalorieGoalDrawer() {
-	$("calorie-goal-drawer").classList.remove("hidden");
-	$("calorie-goal-drawer-btn").setAttribute("aria-expanded", "true");
-}
-
-function closeCalorieGoalDrawer() {
-	$("calorie-goal-drawer").classList.add("hidden");
-	$("calorie-goal-drawer-btn").setAttribute("aria-expanded", "false");
-}
-
 function openConfirmFastModal({
 	title,
 	message,
@@ -4613,6 +4902,8 @@ function renderSettings() {
 	const presetId = resolveThemePresetId();
 	const unitSelect = $("calorie-unit-system");
 	const unitSystem = getCalorieUnitSystem();
+	const llmProvider = normalizeLLMProvider(state.settings.llmProvider);
+	const byoLlm = normalizeByoLlmSettings(state.settings.byoLlm);
 	const reasoningSelect = $("openai-reasoning-effort");
 	const apiKey = state.settings.openaiApiKey?.trim();
 	$("default-fast-select").value = resolveFastTypeId(
@@ -4628,9 +4919,23 @@ function renderSettings() {
 		state.settings.showRingEmojis !== false,
 	);
 	if (unitSelect) unitSelect.value = unitSystem;
+	$("llm-provider-openai").checked = llmProvider === "openai";
+	$("llm-provider-byo").checked = llmProvider === "byo";
+	$("openai-settings-panel").classList.toggle(
+		"hidden",
+		llmProvider !== "openai",
+	);
+	$("byo-llm-settings-panel").classList.toggle("hidden", llmProvider !== "byo");
 	$("openai-api-key").value = state.settings.openaiApiKey || "";
 	$("openai-trainer-instructions").value =
 		state.settings.openaiTrainerInstructions || "";
+	$("byo-llm-api-url").value = byoLlm.apiUrl;
+	$("byo-llm-api-key").value = byoLlm.apiKey;
+	$("byo-llm-model").value = byoLlm.model;
+	$("byo-llm-reasoning-effort").value = byoLlm.reasoningEffort;
+	$("byo-llm-max-tokens").value = String(byoLlm.maxCompletionTokens);
+	$("byo-llm-temperature").value = String(byoLlm.temperature);
+	$("byo-llm-headers").value = byoLlm.headersJson;
 	const notesRangeSlider = $("openai-notes-range");
 	if (notesRangeSlider) {
 		const rangeVal = normalizeOpenAINotesRange(state.settings.openaiNotesRange);
@@ -5616,8 +5921,8 @@ function renderNotes() {
 }
 
 function renderHistoryNotes() {
-	const summary = $("day-notes-summary");
-	const list = $("day-notes-list");
+	const summary = $("today-notes-summary");
+	const list = $("today-notes-list");
 	if (!summary || !list) return;
 
 	list.innerHTML = "";
@@ -5627,18 +5932,19 @@ function renderHistoryNotes() {
 		return;
 	}
 
-	const dayNotes = notes.filter((note) => note.dateKey === selectedDayKey);
+	const todayKey = formatDateKey(new Date());
+	const dayNotes = notes.filter((note) => note.dateKey === todayKey);
 	if (!dayNotes.length) {
 		summary.textContent = "No notes yet.";
 		return;
 	}
 
-	const dayNoteCalories = getNoteCaloriesForDateKey(selectedDayKey);
+	const dayNoteCalories = getNoteCaloriesForDateKey(todayKey);
 	const calorieSummary =
 		Number.isFinite(dayNoteCalories) && dayNoteCalories > 0
 			? `, ${formatCalories(dayNoteCalories)} calories`
 			: "";
-	const nutritionSummary = formatNutritionInlineSummary(selectedDayKey);
+	const nutritionSummary = formatNutritionInlineSummary(todayKey);
 	const nutritionTail = nutritionSummary ? `, ${nutritionSummary}` : "";
 	summary.textContent = `${dayNotes.length} note(s)${calorieSummary}${nutritionTail}`;
 	dayNotes.forEach((note) => {
