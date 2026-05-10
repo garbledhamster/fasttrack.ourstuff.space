@@ -14,7 +14,7 @@ Tracks completed work, open issues, and deferred items for fasttrack.ourstuff.sp
 | 2 | Remove static repeated context | Removed `availableFastTypes` and `physiologyNotes` from `buildFastingScheduleContext()`. These were static arrays sent on every AI request. |
 | 3 | Deduplicate trainer context | Removed `previousAITrainerNotes` from `buildTrainerContinuityContext()`. It was a filtered duplicate of `notes`, which is already in the same payload. |
 | 4 | Cheaper model for extraction | Added `OPENAI_EXTRACTION_MODEL` constant and `modelOverride` parameter to `callAIChatCompletions`. `estimateCaloriesWithAI` now routes to the cheaper model for OpenAI; BYO providers are unaffected. |
-| 5 | Token usage instrumentation | `callAIChatCompletions` now logs `prompt_tokens`, `completion_tokens`, `total_tokens`, and request purpose to the browser console after every successful AI response. |
+| 6 | Per-tool AI provider matrix | Added `aiToolProviders` to state/settings + `AI_TOOL_PROVIDER_KEYS` constant, `normalizeAIToolProviders`, `getAIToolProvider`. Settings UI matrix table (Settings → AI Features) lets users assign each tool to OpenAI or Custom independently. `getAITrainerProviderOverride` extended to accept a `toolKey` fallback. `estimateCaloriesWithAI` and `recommendGoalPlanWithAI` updated to accept `providerOverride`. All 5 call sites updated. |
 
 ---
 

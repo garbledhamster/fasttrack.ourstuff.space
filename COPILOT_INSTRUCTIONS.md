@@ -51,6 +51,11 @@ Payload helpers:
 - `buildTrainerContinuityContext(range, provider)` — notes + completed fasts for trainer continuity.
 - `buildGoalRecommendationProfile()` — user goal/metrics profile.
 
+### Per-tool provider routing
+Each AI tool can be assigned to either OpenAI or Custom (BYO) independently via **Settings → AI Features → Per-tool model provider**. The matrix is stored in `state.settings.aiToolProviders` (`trainerNote`, `trainerQuickQuestion`, `trainerConversation`, `recommendation`, `nutritionEstimate`).
+
+Use `getAIToolProvider(toolKey)` to read the effective provider for a tool (falls back to global `llmProvider`). Use `getAITrainerProviderOverride(toolKey)` for trainer tools — it respects the session-level override if active, otherwise falls back to the per-tool setting.
+
 ### Cheaper model routing
 - `OPENAI_EXTRACTION_MODEL` is set to the cheapest available OpenAI model.
 - Pass `modelOverride: OPENAI_EXTRACTION_MODEL` to `callAIChatCompletions` for narrow JSON-extraction tasks (e.g. calorie/nutrition estimation).

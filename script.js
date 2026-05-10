@@ -277,6 +277,13 @@ const OPENAI_ALLOWED_MODELS = Object.freeze([
 ]);
 const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
 const OPENAI_EXTRACTION_MODEL = "gpt-5.4-mini";
+const AI_TOOL_PROVIDER_KEYS = Object.freeze([
+	"trainerNote",
+	"trainerQuickQuestion",
+	"trainerConversation",
+	"recommendation",
+	"nutritionEstimate",
+]);
 const SUPPORTED_LLM_PROVIDERS = new Set(["openai", "byo"]);
 const DEFAULT_LLM_PROVIDER = "openai";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
@@ -309,6 +316,13 @@ const defaultState = {
 			headersJson: "",
 			trainerInstructions: "",
 			notesRange: 0,
+		},
+		aiToolProviders: {
+			trainerNote: "",
+			trainerQuickQuestion: "",
+			trainerConversation: "",
+			recommendation: "",
+			nutritionEstimate: "",
 		},
 		calories: {
 			dailyTarget: null,
@@ -1711,7 +1725,7 @@ async function sendNoteEditorTrainerMessage() {
 			message,
 			conversation: existingConversation,
 			rangeOverride: getAITrainerNotesRangeOverride(),
-			providerOverride: getAITrainerProviderOverride(),
+			providerOverride: getAITrainerProviderOverride("trainerConversation"),
 			signal: abortController.signal,
 		});
 		if (!reply) return;
@@ -1986,6 +2000,9 @@ function mergeStateWithDefaults(parsed) {
 		merged.settings.openaiNotesRange,
 	);
 	merged.settings.byoLlm = normalizeByoLlmSettings(merged.settings.byoLlm);
+	merged.settings.aiToolProviders = normalizeAIToolProviders(
+		merged.settings.aiToolProviders,
+	);
 	merged.activeFast = parsed.activeFast || null;
 	merged.history = Array.isArray(parsed.history) ? parsed.history : [];
 	merged.reminders = Object.assign(merged.reminders, parsed.reminders || {});
@@ -4516,10 +4533,14 @@ function getGlobalTrainerContextRange(providerOverride = null) {
 		: normalizeOpenAINotesRange(state.settings.openaiNotesRange);
 }
 
-function getAITrainerProviderOverride() {
-	return aiTrainerProviderOverride === null
-		? normalizeLLMProvider(state.settings.llmProvider)
-		: normalizeLLMProvider(aiTrainerProviderOverride);
+function getAITrainerProviderOverride(toolKey = null) {
+	if (aiTrainerProviderOverride !== null) {
+		return normalizeLLMProvider(aiTrainerProviderOverride);
+	}
+	if (toolKey) {
+		return getAIToolProvider(toolKey);
+	}
+	return normalizeLLMProvider(state.settings.llmProvider);
 }
 
 function getTrainerContextRange(providerOverride = null) {
@@ -4725,6 +4746,22 @@ function normalizeByoLlmSettings(value) {
 				: "",
 		notesRange: normalizeOpenAINotesRange(raw.notesRange),
 	};
+}
+
+function normalizeAIToolProviders(value) {
+	const raw = value && typeof value === "object" ? value : {};
+	const out = {};
+	for (const key of AI_TOOL_PROVIDER_KEYS) {
+		const v = String(raw[key] || "").trim();
+		out[key] = v === "openai" || v === "byo" ? v : "";
+	}
+	return out;
+}
+
+function getAIToolProvider(toolKey) {
+	const providers = state.settings.aiToolProviders || {};
+	const perTool = String(providers[toolKey] || "").trim();
+	return normalizeLLMProvider(perTool || state.settings.llmProvider);
 }
 
 function parseByoLlmHeaders(headersText) {
@@ -5116,7 +5153,9 @@ async function callAIChatCompletions({
 		config.reasoningEffort !== "none" &&
 		(config.provider === "byo" || supportsReasoningEffort(config.model));
 	const effectiveModel =
-		modelOverride && config.provider === "openai"
+		modelOverride &&
+		config.provider === "openai" &&
+		OPENAI_ALLOWED_MODELS.includes(modelOverride)
 			? modelOverride
 			: config.model;
 	const requestBody = {
@@ -5172,8 +5211,10 @@ async function callAIChatCompletions({
 	return data;
 }
 
-async function recommendGoalPlanWithAI() {
-	const provider = normalizeLLMProvider(state.settings.llmProvider);
+async function recommendGoalPlanWithAI(providerOverride = null) {
+	const provider = normalizeLLMProvider(
+		providerOverride === null ? state.settings.llmProvider : providerOverride,
+	);
 	const byoLlm = normalizeByoLlmSettings(state.settings.byoLlm);
 	const trainerInstructions = String(
 		provider === "byo"
@@ -5213,6 +5254,7 @@ async function recommendGoalPlanWithAI() {
 			systemPrompt: recommendationPrompt,
 			userPrompt: userPayload,
 			purpose: "AI recommendation",
+			providerOverride: provider,
 		});
 		if (!data) {
 			return null;
@@ -5236,7 +5278,7 @@ async function recommendGoalPlanWithAI() {
 	}
 }
 
-async function estimateCaloriesWithAI(noteContent) {
+async function estimateCaloriesWithAI(noteContent, providerOverride = null) {
 	const nutritionDetails = String(noteContent || "").trim();
 	const nutritionPrompt = [
 		"You are a precise nutritional expert.",
@@ -5262,6 +5304,7 @@ async function estimateCaloriesWithAI(noteContent) {
 			purpose: "AI nutrition estimate",
 			withReasoningFallback: true,
 			modelOverride: OPENAI_EXTRACTION_MODEL,
+			providerOverride,
 		});
 		if (!data) {
 			return null;
@@ -5695,6 +5738,22 @@ function initButtons() {
 		renderSettings();
 	});
 
+	for (const toolKey of AI_TOOL_PROVIDER_KEYS) {
+		for (const providerValue of ["openai", "byo"]) {
+			const radio = $(`ai-tool-${toolKey}-${providerValue}`);
+			if (radio) {
+				radio.addEventListener("change", (event) => {
+					if (!event.target.checked) return;
+					if (!state.settings.aiToolProviders) {
+						state.settings.aiToolProviders = normalizeAIToolProviders({});
+					}
+					state.settings.aiToolProviders[toolKey] = providerValue;
+					void saveState();
+				});
+			}
+		}
+	}
+
 	$("toggle-end-alert").addEventListener("click", () => {
 		state.settings.notifyOnEnd = !state.settings.notifyOnEnd;
 		void saveState();
@@ -6067,7 +6126,7 @@ function initButtons() {
 			const added = await addAITrainerQuickQuestionNote({
 				question,
 				rangeOverride: getAITrainerNotesRangeOverride(),
-				providerOverride: getAITrainerProviderOverride(),
+				providerOverride: getAITrainerProviderOverride("trainerQuickQuestion"),
 				signal: abortController.signal,
 			});
 			if (added) input.value = "";
@@ -6096,7 +6155,7 @@ function initButtons() {
 			await addAITrainerNote(
 				getAITrainerNotesRangeOverride(),
 				abortController.signal,
-				getAITrainerProviderOverride(),
+				getAITrainerProviderOverride("trainerNote"),
 			);
 		} finally {
 			if (aiTrainerNoteAbortController === abortController) {
@@ -6131,7 +6190,9 @@ function initButtons() {
 		const originalText = button.textContent;
 		button.disabled = true;
 		button.textContent = "Recommending...";
-		const recommendation = await recommendGoalPlanWithAI();
+		const recommendation = await recommendGoalPlanWithAI(
+			getAIToolProvider("recommendation"),
+		);
 		button.disabled = false;
 		button.textContent = originalText;
 		if (!recommendation) return;
@@ -6182,7 +6243,10 @@ function initButtons() {
 		button.innerHTML =
 			'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>';
 
-		const estimatedNutrition = await estimateCaloriesWithAI(noteContent);
+		const estimatedNutrition = await estimateCaloriesWithAI(
+			noteContent,
+			getAIToolProvider("nutritionEstimate"),
+		);
 
 		// Re-enable button and restore original icon
 		button.disabled = false;
@@ -6447,6 +6511,16 @@ function renderSettings() {
 		void loadOpenAIModels();
 	}
 	renderAlertsPill();
+	const toolProviders = normalizeAIToolProviders(
+		state.settings.aiToolProviders,
+	);
+	for (const toolKey of AI_TOOL_PROVIDER_KEYS) {
+		const effectiveProvider = toolProviders[toolKey] || llmProvider;
+		const openaiRadio = $(`ai-tool-${toolKey}-openai`);
+		const byoRadio = $(`ai-tool-${toolKey}-byo`);
+		if (openaiRadio) openaiRadio.checked = effectiveProvider === "openai";
+		if (byoRadio) byoRadio.checked = effectiveProvider === "byo";
+	}
 }
 
 function applyRingEmojiVisibility() {

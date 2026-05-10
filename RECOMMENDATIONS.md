@@ -89,6 +89,26 @@ The log includes the `purpose` label (trainer note, quick question, conversation
 
 ---
 
+### 7. Per-Tool AI Provider Matrix
+
+**Status: ✅ Implemented**
+
+A matrix table in **Settings → AI Features** lets users assign each AI tool to either the OpenAI provider or the Custom (BYO) provider independently. The tools covered are:
+
+| Tool | Setting key |
+|---|---|
+| Trainer Note | `trainerNote` |
+| Quick Question | `trainerQuickQuestion` |
+| Trainer Chat | `trainerConversation` |
+| Goal Recommendation | `recommendation` |
+| Nutrition Estimate | `nutritionEstimate` |
+
+Stored in `state.settings.aiToolProviders` (persisted, encrypted with the rest of state). Each entry is `"openai"`, `"byo"`, or `""` (falls back to the global provider setting).
+
+`getAIToolProvider(toolKey)` reads the per-tool setting and falls back to the global `llmProvider`. All five AI call sites now use this to resolve their provider. The trainer panel's session-level provider override still takes precedence when active.
+
+---
+
 ## Remaining / Future Recommendations
 
 These were identified but not implemented in this pass:
