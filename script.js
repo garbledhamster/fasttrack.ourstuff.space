@@ -923,7 +923,9 @@ function normalizeFastContext(fastContext, createdAt) {
 
 function normalizeNoteTags(tags) {
 	if (!Array.isArray(tags)) return [];
-	return [...new Set(tags.map((tag) => String(tag || "").trim()).filter(Boolean))];
+	return [
+		...new Set(tags.map((tag) => String(tag || "").trim()).filter(Boolean)),
+	];
 }
 
 function normalizeNoteMetadata(metadata, text = "") {
@@ -955,7 +957,10 @@ function normalizeNoteMetadata(metadata, text = "") {
 
 	return {
 		source: source || "user",
-		type: typeof raw.type === "string" && raw.type.trim() ? raw.type.trim() : "journal",
+		type:
+			typeof raw.type === "string" && raw.type.trim()
+				? raw.type.trim()
+				: "journal",
 		isAINote: raw.isAINote === true,
 		readOnly: raw.readOnly === true,
 		contentFormat: raw.contentFormat === "markdown" ? "markdown" : "plain",
@@ -965,12 +970,17 @@ function normalizeNoteMetadata(metadata, text = "") {
 }
 
 function isAITrainerNote(note) {
-	return normalizeNoteMetadata(note?.metadata, note?.text).source === AI_TRAINER_NOTE_SOURCE;
+	return (
+		normalizeNoteMetadata(note?.metadata, note?.text).source ===
+		AI_TRAINER_NOTE_SOURCE
+	);
 }
 
 function isReadOnlyNote(note) {
 	const metadata = normalizeNoteMetadata(note?.metadata, note?.text);
-	return metadata.readOnly === true || metadata.source === AI_TRAINER_NOTE_SOURCE;
+	return (
+		metadata.readOnly === true || metadata.source === AI_TRAINER_NOTE_SOURCE
+	);
 }
 
 function getDisplayNoteText(note) {
@@ -1081,7 +1091,10 @@ async function buildNotePayload({
 		payload,
 		createdAt,
 		updatedAt: createdAt,
-		dateKey: typeof dateKey === "string" ? dateKey : formatDateKey(new Date(createdAt)),
+		dateKey:
+			typeof dateKey === "string"
+				? dateKey
+				: formatDateKey(new Date(createdAt)),
 		goalContext: goalContext ?? buildGoalContext(),
 		fastContext: fastContext ?? buildFastContextAt(createdAt),
 		metadata: normalizeNoteMetadata(metadata, noteText),
@@ -1391,8 +1404,7 @@ async function handleNoteEditorSwipeDismiss() {
 	const text = $("note-editor-content").value.trim();
 	const caloriesValue = $("note-editor-calories").value.trim();
 	const nutritionValue = serializeNoteEditorNutritionFields();
-	const trainerResponse =
-		$("note-editor-trainer-response")?.value.trim() || "";
+	const trainerResponse = $("note-editor-trainer-response")?.value.trim() || "";
 	const hasChanges =
 		text !== editingNoteInitialText ||
 		caloriesValue !== editingNoteInitialCalories ||
@@ -1525,8 +1537,7 @@ function closeNoteEditor() {
 
 async function persistNoteEditor({ closeOnSave = true } = {}) {
 	const isTrainerNote = editingNoteMetadata?.source === AI_TRAINER_NOTE_SOURCE;
-	const trainerResponse =
-		$("note-editor-trainer-response")?.value.trim() || "";
+	const trainerResponse = $("note-editor-trainer-response")?.value.trim() || "";
 	if (editingNoteReadOnly && isTrainerNote) {
 		if (!editingNoteId) return false;
 		try {
@@ -4297,8 +4308,7 @@ function normalizeOpenAINotesRange(value) {
 function normalizeTrainerNoteFilters(value) {
 	const raw = Array.isArray(value) ? value : [];
 	return raw.filter(
-		(id, index) =>
-			TRAINER_NOTE_FILTERS[id] && raw.indexOf(id) === index,
+		(id, index) => TRAINER_NOTE_FILTERS[id] && raw.indexOf(id) === index,
 	);
 }
 
@@ -4729,7 +4739,9 @@ function buildTrainerActiveFastContext() {
 		Number.isFinite(plannedDurationHours) && Number.isFinite(elapsedHours)
 			? plannedDurationHours - elapsedHours
 			: null;
-	const phaseHour = Number.isFinite(elapsedHours) ? Math.floor(elapsedHours) : null;
+	const phaseHour = Number.isFinite(elapsedHours)
+		? Math.floor(elapsedHours)
+		: null;
 	const phase = phaseHour !== null ? getHourlyEntry(phaseHour) : null;
 	return {
 		isCurrentlyFasting: true,
@@ -4765,7 +4777,9 @@ function buildFastingScheduleContext() {
 	return {
 		defaultFastType: buildTrainerFastTypeSummary(defaultType),
 		selectedFastType: buildTrainerFastTypeSummary(selectedType),
-		availableFastTypes: FAST_TYPES.map(buildTrainerFastTypeSummary).filter(Boolean),
+		availableFastTypes: FAST_TYPES.map(buildTrainerFastTypeSummary).filter(
+			Boolean,
+		),
 		physiologyNotes: Array.isArray(FASTING_HOURLY.notes)
 			? FASTING_HOURLY.notes.slice(0, 3)
 			: [],
@@ -4776,7 +4790,11 @@ function buildTrainerCompletedFastSummary(entry) {
 	const type = getTypeById(entry?.typeId);
 	const startTimestamp = Number(entry?.startTimestamp);
 	const endTimestamp = Number(entry?.endTimestamp);
-	const durationHours = resolveDurationHours(entry, startTimestamp, endTimestamp);
+	const durationHours = resolveDurationHours(
+		entry,
+		startTimestamp,
+		endTimestamp,
+	);
 	const targetDurationHours = type?.durationHours ?? null;
 	return {
 		id: entry?.id || null,
@@ -4797,19 +4815,24 @@ function buildTrainerCompletedFastSummary(entry) {
 	};
 }
 
-function buildTrainerContinuityContext(rangeOverride = null, providerOverride = null) {
+function buildTrainerContinuityContext(
+	rangeOverride = null,
+	providerOverride = null,
+) {
 	const range =
 		rangeOverride === null
 			? getTrainerContextRange(providerOverride)
 			: normalizeOpenAINotesRange(rangeOverride);
 	const trainerNoteFilters = getAITrainerNoteFilters();
-	const trainerNotes = getNotesForTrainer(range, trainerNoteFilters).map((note) => ({
-		date: note.createdAt ? new Date(note.createdAt).toISOString() : null,
-		source: note.metadata?.source || "user",
-		isAITrainerNote: isAITrainerNote(note),
-		text: getDisplayNoteText(note) || null,
-		userResponse: note.trainerResponse || null,
-	}));
+	const trainerNotes = getNotesForTrainer(range, trainerNoteFilters).map(
+		(note) => ({
+			date: note.createdAt ? new Date(note.createdAt).toISOString() : null,
+			source: note.metadata?.source || "user",
+			isAITrainerNote: isAITrainerNote(note),
+			text: getDisplayNoteText(note) || null,
+			userResponse: note.trainerResponse || null,
+		}),
+	);
 	const previousAITrainerNotes = trainerNotes.filter(
 		(note) => note.isAITrainerNote,
 	);
@@ -4819,7 +4842,9 @@ function buildTrainerContinuityContext(rangeOverride = null, providerOverride = 
 	return {
 		rangeLabel: OPENAI_NOTES_RANGE_LABELS[range],
 		noteFilters: trainerNoteFilters.length
-			? trainerNoteFilters.map((filterId) => TRAINER_NOTE_FILTERS[filterId].label)
+			? trainerNoteFilters.map(
+					(filterId) => TRAINER_NOTE_FILTERS[filterId].label,
+				)
 			: null,
 		notes: trainerNotes.length ? trainerNotes : null,
 		previousAITrainerNotes: previousAITrainerNotes.length
@@ -5172,7 +5197,8 @@ async function generateTrainerQuickQuestionResponse({
 			activeFast: buildTrainerActiveFastContext(),
 			today: {
 				dateKey: formatDateKey(new Date()),
-				nutritionSummary: formatNutritionInlineSummary(formatDateKey(new Date())) || null,
+				nutritionSummary:
+					formatNutritionInlineSummary(formatDateKey(new Date())) || null,
 			},
 			trainerContext,
 		},
@@ -5655,12 +5681,15 @@ function initButtons() {
 			setAITrainerNoteFilters([]);
 		});
 	}
-	$("ai-trainer-provider-override-openai").addEventListener("change", (event) => {
-		if (!event.target.checked) return;
-		aiTrainerProviderOverride = "openai";
-		renderAITrainerProviderOverride();
-		renderNotes();
-	});
+	$("ai-trainer-provider-override-openai").addEventListener(
+		"change",
+		(event) => {
+			if (!event.target.checked) return;
+			aiTrainerProviderOverride = "openai";
+			renderAITrainerProviderOverride();
+			renderNotes();
+		},
+	);
 	$("ai-trainer-provider-override-byo").addEventListener("change", (event) => {
 		if (!event.target.checked) return;
 		aiTrainerProviderOverride = "byo";
@@ -7323,14 +7352,11 @@ function sanitizeMarkdownHref(value) {
 
 function renderMarkdownInline(value) {
 	let html = escapeHtml(value);
-	html = html.replace(
-		/\[([^\]]+)\]\(([^)\s]+)\)/g,
-		(_match, label, href) => {
-			const safeHref = sanitizeMarkdownHref(href);
-			if (!safeHref) return label;
-			return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
-		},
-	);
+	html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_match, label, href) => {
+		const safeHref = sanitizeMarkdownHref(href);
+		if (!safeHref) return label;
+		return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+	});
 	html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
 	html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 	html = html.replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>");
@@ -7338,7 +7364,9 @@ function renderMarkdownInline(value) {
 }
 
 function renderMarkdownToHtml(markdown) {
-	const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+	const lines = String(markdown || "")
+		.replace(/\r\n/g, "\n")
+		.split("\n");
 	const html = [];
 	let paragraph = [];
 	let listType = null;
@@ -7533,7 +7561,9 @@ function buildNoteCard(note) {
 		}
 	} else {
 		if (isAITrainer || note.metadata?.contentFormat === "markdown") {
-			card.appendChild(buildMarkdownNoteContent(displayText || "Untitled note"));
+			card.appendChild(
+				buildMarkdownNoteContent(displayText || "Untitled note"),
+			);
 		} else {
 			const text = document.createElement("div");
 			text.className = "text-default whitespace-pre-wrap text-sm md:text-xs";

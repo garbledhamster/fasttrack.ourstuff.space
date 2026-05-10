@@ -227,16 +227,26 @@ body.bg-slate-950 {
 }
 
 .trainer-filter-panel {
-	border: 1px solid color-mix(in srgb, var(--secondary-color) 28%, var(--border-color));
+	border: 1px solid
+		color-mix(in srgb, var(--secondary-color) 28%, var(--border-color));
 	border-radius: 16px;
-	background: color-mix(in srgb, var(--surface-color) 82%, var(--background-color));
+	background: color-mix(
+		in srgb,
+		var(--surface-color) 82%,
+		var(--background-color)
+	);
 	padding: 10px;
 }
 
 .trainer-provider-override-panel {
-	border: 1px solid color-mix(in srgb, var(--secondary-color) 22%, var(--border-color));
+	border: 1px solid
+		color-mix(in srgb, var(--secondary-color) 22%, var(--border-color));
 	border-radius: 16px;
-	background: color-mix(in srgb, var(--surface-color) 88%, var(--background-color));
+	background: color-mix(
+		in srgb,
+		var(--surface-color) 88%,
+		var(--background-color)
+	);
 	padding: 10px;
 }
 
@@ -297,7 +307,11 @@ body.bg-slate-950 {
 
 .trainer-provider-override-option:has(input:checked) {
 	border-color: var(--secondary-color);
-	background: color-mix(in srgb, var(--secondary-color) 18%, var(--surface-color));
+	background: color-mix(
+		in srgb,
+		var(--secondary-color) 18%,
+		var(--surface-color)
+	);
 }
 
 .trainer-provider-override-option input {
@@ -309,9 +323,14 @@ body.bg-slate-950 {
 }
 
 .trainer-question-panel {
-	border: 1px solid color-mix(in srgb, var(--secondary-color) 24%, var(--border-color));
+	border: 1px solid
+		color-mix(in srgb, var(--secondary-color) 24%, var(--border-color));
 	border-radius: 16px;
-	background: color-mix(in srgb, var(--surface-color) 88%, var(--background-color));
+	background: color-mix(
+		in srgb,
+		var(--surface-color) 88%,
+		var(--background-color)
+	);
 	padding: 10px;
 }
 
@@ -429,7 +448,11 @@ body.bg-slate-950 {
 
 .trainer-filter-btn.is-active {
 	border-color: var(--secondary-color);
-	background: color-mix(in srgb, var(--secondary-color) 18%, var(--surface-color));
+	background: color-mix(
+		in srgb,
+		var(--secondary-color) 18%,
+		var(--surface-color)
+	);
 }
 
 .trainer-filter-btn:focus-visible,
@@ -506,9 +529,14 @@ body.bg-slate-950 {
 }
 
 .note-trainer-response {
-	border: 1px solid color-mix(in srgb, var(--secondary-color) 34%, var(--border-color));
+	border: 1px solid
+		color-mix(in srgb, var(--secondary-color) 34%, var(--border-color));
 	border-radius: 12px;
-	background: color-mix(in srgb, var(--surface-color) 82%, var(--secondary-color));
+	background: color-mix(
+		in srgb,
+		var(--surface-color) 82%,
+		var(--secondary-color)
+	);
 	padding: 9px 10px;
 }
 
@@ -572,7 +600,8 @@ body.bg-slate-950 {
 }
 
 .note-markdown blockquote {
-	border-left: 3px solid color-mix(in srgb, var(--primary-color) 55%, transparent);
+	border-left: 3px solid
+		color-mix(in srgb, var(--primary-color) 55%, transparent);
 	padding-left: 0.75rem;
 	color: var(--text-muted-color);
 }
@@ -726,9 +755,14 @@ body.bg-slate-950 {
 }
 
 .note-readonly-banner {
-	border: 1px solid color-mix(in srgb, var(--secondary-color) 45%, var(--border-color));
+	border: 1px solid
+		color-mix(in srgb, var(--secondary-color) 45%, var(--border-color));
 	border-radius: 12px;
-	background: color-mix(in srgb, var(--secondary-color) 12%, var(--surface-color));
+	background: color-mix(
+		in srgb,
+		var(--secondary-color) 12%,
+		var(--surface-color)
+	);
 	color: color-mix(in srgb, var(--secondary-color) 55%, white);
 	padding: 8px 10px;
 	font-size: 12px;
