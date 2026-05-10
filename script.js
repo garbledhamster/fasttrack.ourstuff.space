@@ -4588,14 +4588,13 @@ function initButtons() {
 		void saveState();
 	});
 	$("byo-llm-notes-range").addEventListener("input", (event) => {
+		const notesRange = normalizeOpenAINotesRange(event.target.value);
 		state.settings.byoLlm = normalizeByoLlmSettings({
 			...state.settings.byoLlm,
-			notesRange: event.target.value,
+			notesRange,
 		});
-		const normalizedByo = normalizeByoLlmSettings(state.settings.byoLlm);
 		const label = $("byo-llm-notes-range-label");
-		if (label)
-			label.textContent = OPENAI_NOTES_RANGE_LABELS[normalizedByo.notesRange];
+		if (label) label.textContent = OPENAI_NOTES_RANGE_LABELS[notesRange];
 		void saveState();
 	});
 
