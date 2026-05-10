@@ -4388,21 +4388,24 @@ function initButtons() {
 		openCalorieTargetDrawer,
 	);
 	$("calorie-goal-drawer-btn").addEventListener("click", openCalorieGoalDrawer);
-	$("history-progress-drawer-btn").addEventListener(
-		"click",
-		openHistoryProgressDrawer,
-	);
+	$("history-progress-drawer-btn").addEventListener("click", () => {
+		if (historyProgressOverlayOpen) closeHistoryProgressDrawer();
+		else openHistoryProgressDrawer();
+	});
 	$("history-progress-close").addEventListener("click", () =>
 		closeHistoryProgressDrawer(),
 	);
-	$("history-notes-drawer-btn").addEventListener(
-		"click",
-		openHistoryNotesDrawer,
-	);
+	$("history-notes-drawer-btn").addEventListener("click", () => {
+		if (historyNotesOverlayOpen) closeHistoryNotesDrawer();
+		else openHistoryNotesDrawer();
+	});
 	$("history-notes-close").addEventListener("click", () =>
 		closeHistoryNotesDrawer(),
 	);
-	$("recent-fasts-drawer-btn").addEventListener("click", openRecentFastsDrawer);
+	$("recent-fasts-drawer-btn").addEventListener("click", () => {
+		if (recentFastsOverlayOpen) closeRecentFastsDrawer();
+		else openRecentFastsDrawer();
+	});
 	$("recent-fasts-close").addEventListener("click", () =>
 		closeRecentFastsDrawer(),
 	);
@@ -5807,65 +5810,171 @@ function buildDayFastMap({ includeActive = false } = {}) {
 	return map;
 }
 
+function getHistoryTrendEntries(selectedDate, dayCount = 7) {
+	const map = buildDayFastMap({ includeActive: true });
+	const entries = [];
+	for (let i = dayCount - 1; i >= 0; i--) {
+		const date = new Date(selectedDate);
+		date.setDate(selectedDate.getDate() - i);
+		const key = formatDateKey(date);
+		entries.push({
+			key,
+			date,
+			totalHours: map[key]?.totalHours ?? 0,
+		});
+	}
+	return entries;
+}
+
+function renderHistoryProgressAnalytics(day) {
+	const kpiContainer = $("history-progress-kpis");
+	const chartContainer = $("history-progress-chart");
+	if (!kpiContainer || !chartContainer) return;
+
+	kpiContainer.innerHTML = "";
+	chartContainer.innerHTML = "";
+
+	const selectedDate = parseDateKey(selectedDayKey) || new Date();
+	const trend = getHistoryTrendEntries(selectedDate, 7);
+	const trendTotal = trend.reduce((sum, entry) => sum + entry.totalHours, 0);
+	const trendAverage = trend.length ? trendTotal / trend.length : 0;
+	const trendMax = Math.max(1, ...trend.map((entry) => entry.totalHours));
+
+	const dayNoteCalories = getNoteCaloriesForDateKey(selectedDayKey);
+	const nutritionSummary = formatNutritionInlineSummary(selectedDayKey);
+	const analyticsCards = [
+		{
+			label: "Fasts logged",
+			value: `${day?.entries?.length ?? 0}`,
+			meta: "Sessions on selected day",
+		},
+		{
+			label: "Hours total",
+			value: `${(day?.totalHours ?? 0).toFixed(1)}h`,
+			meta: `7-day average ${trendAverage.toFixed(1)}h`,
+		},
+		{
+			label: "Nutrition context",
+			value:
+				Number.isFinite(dayNoteCalories) && dayNoteCalories > 0
+					? `${formatCalories(dayNoteCalories)} cal`
+					: "No calories logged",
+			meta: nutritionSummary || "No macro, vitamin, or mineral entries",
+		},
+	];
+
+	analyticsCards.forEach((card) => {
+		const cardEl = document.createElement("div");
+		cardEl.className = "history-analytics-card";
+
+		const label = document.createElement("div");
+		label.className = "history-analytics-label";
+		label.textContent = card.label;
+
+		const value = document.createElement("div");
+		value.className = "history-analytics-value";
+		value.textContent = card.value;
+
+		const meta = document.createElement("div");
+		meta.className = "history-analytics-meta";
+		meta.textContent = card.meta;
+
+		cardEl.appendChild(label);
+		cardEl.appendChild(value);
+		cardEl.appendChild(meta);
+		kpiContainer.appendChild(cardEl);
+	});
+
+	trend.forEach((entry) => {
+		const row = document.createElement("div");
+		row.className = "history-chart-row";
+		if (entry.key === selectedDayKey) row.style.opacity = "1";
+		else row.style.opacity = "0.85";
+
+		const dayLabel = document.createElement("div");
+		dayLabel.className = "history-chart-label";
+		dayLabel.textContent = entry.date.toLocaleDateString(undefined, {
+			weekday: "short",
+		});
+
+		const track = document.createElement("div");
+		track.className = "history-chart-track";
+		const fill = document.createElement("div");
+		fill.className = "history-chart-fill";
+		const widthPercent = Math.min(100, (entry.totalHours / trendMax) * 100);
+		fill.style.width = `${widthPercent}%`;
+		track.appendChild(fill);
+
+		const value = document.createElement("div");
+		value.className = "history-chart-value";
+		value.textContent = `${entry.totalHours.toFixed(1)}h`;
+
+		row.appendChild(dayLabel);
+		row.appendChild(track);
+		row.appendChild(value);
+		chartContainer.appendChild(row);
+	});
+}
+
 function renderDayDetails() {
 	const summary = $("day-summary");
 	const list = $("day-fast-list");
 	const map = buildDayFastMap({ includeActive: true });
 	const day = map[selectedDayKey];
+	if (!summary || !list) return;
 
 	list.innerHTML = "";
 
 	if (!day) {
-		summary.textContent = "No fasts logged";
+		summary.textContent = "No fasts logged for this day.";
+		renderHistoryProgressAnalytics(null);
 		return;
 	}
 
 	const dayNoteCalories = getNoteCaloriesForDateKey(selectedDayKey);
 	const calorieSummary =
 		Number.isFinite(dayNoteCalories) && dayNoteCalories > 0
-			? `, ${formatCalories(dayNoteCalories)} calories`
+			? ` • ${formatCalories(dayNoteCalories)} calories`
 			: "";
 	const nutritionSummary = formatNutritionInlineSummary(selectedDayKey);
-	const nutritionTail = nutritionSummary ? `, ${nutritionSummary}` : "";
-	summary.textContent = `${day.entries.length} fast(s), ${day.totalHours.toFixed(1)} total hours${calorieSummary}${nutritionTail}`;
+	const nutritionTail = nutritionSummary ? ` • ${nutritionSummary}` : "";
+	summary.textContent = `${day.entries.length} session(s) • ${day.totalHours.toFixed(1)} total hours${calorieSummary}${nutritionTail}`;
+	renderHistoryProgressAnalytics(day);
 
 	day.entries.forEach((e) => {
 		const displayStart = e.displayStartTimestamp ?? e.startTimestamp;
 		const displayEnd = e.displayEndTimestamp ?? e.endTimestamp;
 		const sourceEntry = e.sourceEntry ?? e;
-		const actualStart = new Date(sourceEntry.startTimestamp);
-		const actualEnd = new Date(sourceEntry.endTimestamp);
-		const spansMultipleDays = !isSameLocalDay(actualStart, actualEnd);
+		const spanStart = new Date(displayStart);
+		const spanEnd = new Date(displayEnd);
+		const spansMultipleDays = !isSameLocalDay(spanStart, spanEnd);
 		const row = document.createElement("div");
-		row.className =
-			"flex items-center justify-between surface border border-default rounded-xl px-3 py-3 md:py-2";
-
-		const left = document.createElement("div");
-		left.className = "flex flex-col text-sm md:text-[11px]";
+		row.className = "history-fast-card";
 
 		const type = getTypeById(e.typeId);
 		const title = document.createElement("div");
-		title.className = "text-default";
+		title.className = "history-fast-title";
 		const label = type ? type.label : "Custom";
+		const durationHours = Number.isFinite(Number(e.durationHours))
+			? Number(e.durationHours)
+			: computeDurationHours(displayStart, displayEnd) ?? 0;
 		title.textContent = e.isActive
 			? `Active • ${label} fast`
-			: `${label} • ${Number(e.durationHours).toFixed(1)}h`;
+			: `${label} • ${durationHours.toFixed(1)}h`;
 
 		const time = document.createElement("div");
-		time.className = "text-muted";
+		time.className = "history-fast-subtitle";
 		const timeLabel = spansMultipleDays
-			? `${formatDateTimeLong(actualStart)} → ${formatDateTimeLong(new Date(displayEnd))}`
+			? `${formatDateTimeLong(new Date(displayStart))} → ${formatDateTimeLong(new Date(displayEnd))}`
 			: `${formatTimeShort(new Date(displayStart))} → ${formatTimeShort(new Date(displayEnd))}`;
 		time.textContent = e.isActive ? `${timeLabel} (in progress)` : timeLabel;
 
-		left.appendChild(title);
-		left.appendChild(time);
-
-		row.appendChild(left);
+		row.appendChild(title);
+		row.appendChild(time);
 
 		if (!e.isActive) {
 			const actions = document.createElement("div");
-			actions.className = "flex items-center gap-2";
+			actions.className = "history-fast-actions";
 
 			const editBtn = document.createElement("button");
 			editBtn.type = "button";
@@ -6104,6 +6213,7 @@ function getNoteTimestampLabel(note) {
 
 function renderRecentFasts() {
 	const container = $("recent-fast-list");
+	if (!container) return;
 	container.innerHTML = "";
 	if (!state.history.length) {
 		const p = document.createElement("p");
@@ -6113,28 +6223,59 @@ function renderRecentFasts() {
 		return;
 	}
 
-	state.history.slice(0, 10).forEach((e) => {
-		const row = document.createElement("div");
-		row.className =
-			"flex items-center justify-between surface border border-default rounded-xl px-3 py-3 md:py-2";
+	const recentEntries = state.history.slice(0, 10);
+	const maxDuration = Math.max(
+		1,
+		...recentEntries.map((entry) => Number(entry.durationHours) || 0),
+	);
+	const averageDuration =
+		recentEntries.reduce(
+			(sum, entry) => sum + (Number(entry.durationHours) || 0),
+			0,
+		) / recentEntries.length;
 
-		const left = document.createElement("div");
-		left.className = "flex flex-col text-sm md:text-[11px]";
+	recentEntries.forEach((e) => {
+		const row = document.createElement("div");
+		row.className = "recent-fast-card";
 
 		const type = getTypeById(e.typeId);
 		const title = document.createElement("div");
-		title.className = "text-default";
-		title.textContent = `${type ? type.label : "Custom"} • ${Number(e.durationHours).toFixed(1)}h`;
+		title.className = "history-fast-title";
+		const duration = Number(e.durationHours) || 0;
+		title.textContent = `${type ? type.label : "Custom"} • ${duration.toFixed(1)}h`;
 
 		const start = new Date(e.startTimestamp);
 		const time = document.createElement("div");
-		time.className = "text-muted";
+		time.className = "history-fast-subtitle";
 		time.textContent = `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} • ${formatTimeShort(start)}`;
 
-		left.appendChild(title);
-		left.appendChild(time);
+		const chartRow = document.createElement("div");
+		chartRow.className = "history-chart-row";
+		const compareLabel = document.createElement("div");
+		compareLabel.className = "history-chart-label";
+		const delta = duration - averageDuration;
+		compareLabel.textContent =
+			delta >= 0
+				? `+${delta.toFixed(1)}h`
+				: `${delta.toFixed(1)}h`;
 
-		row.appendChild(left);
+		const track = document.createElement("div");
+		track.className = "history-chart-track";
+		const fill = document.createElement("div");
+		fill.className = "history-chart-fill";
+		fill.style.width = `${Math.min(100, (duration / maxDuration) * 100)}%`;
+		track.appendChild(fill);
+		const value = document.createElement("div");
+		value.className = "history-chart-value";
+		value.textContent = "vs recent";
+
+		chartRow.appendChild(compareLabel);
+		chartRow.appendChild(track);
+		chartRow.appendChild(value);
+
+		row.appendChild(title);
+		row.appendChild(time);
+		row.appendChild(chartRow);
 		container.appendChild(row);
 	});
 }
