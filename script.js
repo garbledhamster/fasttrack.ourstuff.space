@@ -275,7 +275,7 @@ const DEFAULT_LLM_PROVIDER = "openai";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
 const OPENAI_MAX_TOKENS_WITH_REASONING = 4096;
 const OPENAI_MAX_TOKENS_STANDARD = 320;
-const Z_INDEX_OVERLAY_PORTAL = "11000";
+const Z_INDEX_OVERLAY_PORTAL = 11000;
 const MAX_IMPERIAL_HEIGHT_PART = 11;
 const VALID_CALORIE_GOALS = new Set(["lose", "maintain", "gain"]);
 const defaultState = {
@@ -2388,7 +2388,7 @@ function ensureNotesOverlay() {
 	notesPortal.id = "notes-portal";
 	notesPortal.style.position = "fixed";
 	notesPortal.style.inset = "0";
-	notesPortal.style.zIndex = Z_INDEX_OVERLAY_PORTAL;
+	notesPortal.style.zIndex = String(Z_INDEX_OVERLAY_PORTAL);
 	notesPortal.style.display = "none";
 	notesPortal.style.pointerEvents = "auto";
 	notesPortal.style.touchAction = "pan-y";
@@ -2559,7 +2559,7 @@ function ensureSecondaryDrawerOverlay(drawerType) {
 	const portal = document.createElement("div");
 	portal.style.position = "fixed";
 	portal.style.inset = "0";
-	portal.style.zIndex = Z_INDEX_OVERLAY_PORTAL;
+	portal.style.zIndex = String(Z_INDEX_OVERLAY_PORTAL);
 	portal.style.display = "none";
 	portal.style.pointerEvents = "auto";
 	portal.style.touchAction = "pan-y";
@@ -3876,7 +3876,7 @@ function normalizeOpenAIModel(value) {
  * Normalize a persisted/provider input value to a supported LLM provider id.
  * Returns the default provider when the input is missing or unsupported.
  * @param {unknown} value
- * @returns {"openai"|"byo"}
+ * @returns {string}
  */
 function normalizeLLMProvider(value) {
 	const normalized = String(value || "")
@@ -4014,6 +4014,12 @@ function getAIProviderSettings() {
 		temperature: 1,
 		headers: {},
 	};
+}
+
+function getMaxCompletionTokens(config, usingReasoning) {
+	if (!usingReasoning) return config.maxCompletionTokens;
+	if (config.provider !== "openai") return config.maxCompletionTokens;
+	return Math.max(config.maxCompletionTokens, OPENAI_MAX_TOKENS_WITH_REASONING);
 }
 
 function isAllowedOpenAIModel(modelId) {
@@ -4183,13 +4189,7 @@ async function callAIChatCompletions({
 			{ role: "system", content: systemPrompt },
 			{ role: "user", content: userPrompt },
 		],
-		// OpenAI reasoning responses need a higher completion-token floor,
-		// while BYO providers keep their configured token limit.
-		max_completion_tokens: usingReasoning
-			? config.provider === "openai"
-				? Math.max(config.maxCompletionTokens, OPENAI_MAX_TOKENS_WITH_REASONING)
-				: config.maxCompletionTokens
-			: config.maxCompletionTokens,
+		max_completion_tokens: getMaxCompletionTokens(config, usingReasoning),
 	};
 	if (usingReasoning) {
 		requestBody.reasoning_effort = config.reasoningEffort;
