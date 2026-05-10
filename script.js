@@ -271,6 +271,10 @@ const OPENAI_ALLOWED_MODELS = Object.freeze([
 ]);
 const DEFAULT_OPENAI_MODEL = OPENAI_ALLOWED_MODELS[0];
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
+const OPENAI_MAX_TOKENS_WITH_REASONING = 4096;
+const OPENAI_MAX_TOKENS_STANDARD = 320;
+const MAX_IMPERIAL_HEIGHT_PART = 11;
+const VALID_CALORIE_GOALS = new Set(["lose", "maintain", "gain"]);
 const defaultState = {
 	settings: {
 		defaultFastTypeId: "16_8",
@@ -282,6 +286,7 @@ const defaultState = {
 		openaiApiKey: "",
 		openaiModel: DEFAULT_OPENAI_MODEL,
 		openaiReasoningEffort: "none",
+		openaiTrainerInstructions: "",
 		calories: {
 			dailyTarget: null,
 			goal: "",
@@ -290,7 +295,7 @@ const defaultState = {
 			currentWeight: null,
 			gender: "",
 			fitnessLevel: "",
-			unitSystem: "metric",
+			unitSystem: "imperial",
 			target: null,
 			consumed: 0,
 			view: "total",
@@ -1544,6 +1549,10 @@ function mergeStateWithDefaults(parsed) {
 	merged.settings.openaiReasoningEffort = normalizeOpenAIReasoningEffort(
 		merged.settings.openaiReasoningEffort,
 	);
+	merged.settings.openaiTrainerInstructions =
+		typeof merged.settings.openaiTrainerInstructions === "string"
+			? merged.settings.openaiTrainerInstructions
+			: "";
 	merged.activeFast = parsed.activeFast || null;
 	merged.history = Array.isArray(parsed.history) ? parsed.history : [];
 	merged.reminders = Object.assign(merged.reminders, parsed.reminders || {});
@@ -2666,6 +2675,61 @@ function parseCalorieValue(value) {
 	return num;
 }
 
+function ensureHeightSelectorsPopulated() {
+	const feetSelect = $("calorie-height-feet-select");
+	const inchesSelect = $("calorie-height-inches-select");
+	[feetSelect, inchesSelect].forEach((selectEl) => {
+		if (!selectEl || selectEl.options.length > 0) return;
+		for (let value = 0; value <= MAX_IMPERIAL_HEIGHT_PART; value++) {
+			const option = document.createElement("option");
+			option.value = String(value);
+			option.textContent = String(value);
+			selectEl.appendChild(option);
+		}
+	});
+}
+
+function normalizeImperialHeight(heightValue) {
+	const normalized = normalizeGoalMetric(heightValue);
+	if (!Number.isFinite(normalized) || normalized <= 0) {
+		return { feet: 0, inches: 0 };
+	}
+	const capped = Math.max(
+		0,
+		Math.min(
+			normalized,
+			MAX_IMPERIAL_HEIGHT_PART * 12 + MAX_IMPERIAL_HEIGHT_PART,
+		),
+	);
+	const feet = Math.floor(capped / 12);
+	const inches = Math.round(capped - feet * 12);
+	return {
+		feet,
+		inches: Math.max(0, Math.min(inches, MAX_IMPERIAL_HEIGHT_PART)),
+	};
+}
+
+function getHeightFromImperialSelectors() {
+	const feet = Number($("calorie-height-feet-select")?.value);
+	const inches = Number($("calorie-height-inches-select")?.value);
+	if (!Number.isFinite(feet) || !Number.isFinite(inches)) return null;
+	const normalizedFeet = Math.max(
+		0,
+		Math.min(Math.round(feet), MAX_IMPERIAL_HEIGHT_PART),
+	);
+	const normalizedInches = Math.max(
+		0,
+		Math.min(Math.round(inches), MAX_IMPERIAL_HEIGHT_PART),
+	);
+	const totalInches = normalizedFeet * 12 + normalizedInches;
+	return totalInches > 0 ? totalInches : null;
+}
+
+function setCalorieTargetSettings(settings, target) {
+	settings.dailyTarget = target;
+	settings.target = target;
+}
+
 function getCalorieTarget() {
 	const target = Number(getCalorieSettings().dailyTarget);
 	return Number.isFinite(target) && target > 0 ? target : null;
@@ -3067,6 +3131,10 @@ function renderCalories() {
 	const fitnessInput = $("calorie-fitness-input");
 	const ageInput = $("calorie-age-input");
 	const heightInput = $("calorie-height-input");
+	const heightMetricWrap = $("calorie-height-metric-wrap");
+	const heightImperialWrap = $("calorie-height-imperial-wrap");
+	const heightFeetSelect = $("calorie-height-feet-select");
+	const heightInchesSelect = $("calorie-height-inches-select");
 	const weightInput = $("calorie-weight-input");
 	const heightLabel = $("calorie-height-label");
 	const weightLabel = $("calorie-weight-label");
@@ -3075,6 +3143,7 @@ function renderCalories() {
 	const settings = getCalorieSettings();
 	const nutrientGoals = normalizeNutrientGoalSettings(settings.nutrientGoals);
 	const unitSystem = getCalorieUnitSystem();
+	ensureHeightSelectorsPopulated();
 	if (targetInput) {
 		const target = getCalorieTarget();
 		targetInput.value = target ? String(Math.round(target)) : "";
@@ -3083,16 +3152,27 @@ function renderCalories() {
 		const consumed = getCalorieConsumed();
 		consumedInput.value = consumed ? String(Math.round(consumed)) : "";
 	}
-	if (goalInput) goalInput.value = settings.goal || "";
+	if (goalInput) goalInput.value = normalizeCalorieGoalId(settings.goal);
 	if (genderInput) genderInput.value = settings.gender || "";
 	if (fitnessInput) fitnessInput.value = settings.fitnessLevel || "";
 	if (ageInput) {
 		const age = normalizeGoalMetric(settings.age);
 		ageInput.value = age ? String(age) : "";
 	}
-	if (heightInput) {
-		const height = normalizeGoalMetric(settings.height);
-		heightInput.value = height ? String(height) : "";
+	const height = normalizeGoalMetric(settings.height);
+	if (unitSystem === "imperial") {
+		if (heightMetricWrap) heightMetricWrap.classList.add("hidden");
+		if (heightImperialWrap) heightImperialWrap.classList.remove("hidden");
+		const imperialHeight = normalizeImperialHeight(height);
+		if (heightFeetSelect) heightFeetSelect.value = String(imperialHeight.feet);
+		if (heightInchesSelect)
+			heightInchesSelect.value = String(imperialHeight.inches);
+	} else {
+		if (heightMetricWrap) heightMetricWrap.classList.remove("hidden");
+		if (heightImperialWrap) heightImperialWrap.classList.add("hidden");
+		if (heightInput) {
+			heightInput.value = height ? String(height) : "";
+		}
 	}
 	if (weightInput) {
 		const weight = normalizeGoalMetric(settings.currentWeight);
@@ -3123,7 +3203,7 @@ function renderCalories() {
 	if (heightSubtext) {
 		heightSubtext.textContent =
 			unitSystem === "imperial"
-				? "Height in feet and inches."
+				? "Select height in feet and inches."
 				: "Height in centimeters.";
 	}
 	if (weightSubtext) {
@@ -3146,15 +3226,17 @@ function initCalories() {
 	const fitnessInput = $("calorie-fitness-input");
 	const ageInput = $("calorie-age-input");
 	const heightInput = $("calorie-height-input");
+	const heightFeetSelect = $("calorie-height-feet-select");
+	const heightInchesSelect = $("calorie-height-inches-select");
 	const weightInput = $("calorie-weight-input");
 	const ringValue = $("calorie-ring-value");
+	ensureHeightSelectorsPopulated();
 
 	if (targetInput) {
 		targetInput.addEventListener("input", (event) => {
 			const next = parseCalorieValue(event.target.value);
 			const settings = getCalorieSettings();
-			settings.dailyTarget = next;
-			settings.target = next;
+			setCalorieTargetSettings(settings, next);
 			void saveState();
 			renderCalories();
 		});
@@ -3173,7 +3255,7 @@ function initCalories() {
 	if (goalInput) {
 		goalInput.addEventListener("change", (event) => {
 			const settings = getCalorieSettings();
-			settings.goal = event.target.value || "";
+			settings.goal = normalizeCalorieGoalId(event.target.value);
 			void saveState();
 			renderCalories();
 		});
@@ -3215,6 +3297,19 @@ function initCalories() {
 			void saveState();
 			renderCalories();
 		});
+	}
+
+	const onImperialHeightChange = () => {
+		const settings = getCalorieSettings();
+		settings.height = getHeightFromImperialSelectors();
+		void saveState();
+		renderCalories();
+	};
+	if (heightFeetSelect) {
+		heightFeetSelect.addEventListener("change", onImperialHeightChange);
+	}
+	if (heightInchesSelect) {
+		heightInchesSelect.addEventListener("change", onImperialHeightChange);
 	}
 
 	if (weightInput) {
@@ -3336,6 +3431,13 @@ function parseEstimatedNutritionValue(value) {
 	return parsed;
 }
 
+function normalizeCalorieGoalId(value) {
+	const normalized = String(value || "")
+		.trim()
+		.toLowerCase();
+	return VALID_CALORIE_GOALS.has(normalized) ? normalized : "";
+}
+
 function normalizeAIEstimatedNutrition(payload) {
 	const calories = parseEstimatedNutritionValue(payload?.calories);
 	const macros = {
@@ -3361,6 +3463,32 @@ function normalizeAIEstimatedNutrition(payload) {
 	const hasNutrition = hasAnyNutrientValue(macros, micros, vitamins);
 	if (calories === null && !hasNutrition) return null;
 	return { calories, macros, micros, vitamins };
+}
+
+function normalizeAIRecommendedPlan(payload) {
+	if (!payload || typeof payload !== "object") return null;
+	const dailyTarget = parseEstimatedNutritionValue(
+		payload.dailyTarget ?? payload.dailyCalories,
+	);
+	const goal = normalizeCalorieGoalId(payload.goal ?? payload.primaryGoal);
+	const nutrientGoals = normalizeNutrientGoalSettings(payload.nutrientGoals);
+	const hasGoal =
+		dailyTarget !== null ||
+		Boolean(goal) ||
+		hasAnyNutrientValue(
+			nutrientGoals.macros,
+			nutrientGoals.micros,
+			nutrientGoals.vitamins,
+			{
+				positiveOnly: true,
+			},
+		);
+	if (!hasGoal) return null;
+	return {
+		dailyTarget,
+		goal,
+		nutrientGoals,
+	};
 }
 
 function parseAIJsonPayload(text) {
@@ -3498,6 +3626,134 @@ async function loadOpenAIModels(forceRefresh = false) {
 	renderOpenAIModelOptions();
 }
 
+function buildGoalRecommendationProfile() {
+	const settings = getCalorieSettings();
+	const unitSystem = getCalorieUnitSystem();
+	const height = normalizeGoalMetric(settings.height);
+	const weight = normalizeGoalMetric(settings.currentWeight);
+	const imperialHeight = normalizeImperialHeight(height);
+	const heightLabel =
+		unitSystem === "imperial"
+			? `${imperialHeight.feet} ft ${imperialHeight.inches} in`
+			: Number.isFinite(height) && height > 0
+				? `${height} cm`
+				: "";
+	const weightLabel =
+		unitSystem === "imperial"
+			? Number.isFinite(weight) && weight > 0
+				? `${weight} lb`
+				: ""
+			: Number.isFinite(weight) && weight > 0
+				? `${weight} kg`
+				: "";
+	return {
+		goal: normalizeCalorieGoalId(settings.goal),
+		age: normalizeGoalMetric(settings.age),
+		gender: settings.gender || "",
+		fitnessLevel: settings.fitnessLevel || "",
+		unitSystem,
+		height: heightLabel,
+		currentWeight: weightLabel,
+		dailyTarget: getCalorieTarget(),
+		nutrientGoals: normalizeNutrientGoalSettings(settings.nutrientGoals),
+	};
+}
+
+async function recommendGoalPlanWithAI() {
+	const apiKey = sanitizeBearerToken(state.settings.openaiApiKey);
+	const model = normalizeOpenAIModel(state.settings.openaiModel);
+	const reasoningEffort = normalizeOpenAIReasoningEffort(
+		state.settings.openaiReasoningEffort,
+	);
+	const trainerInstructions = String(
+		state.settings.openaiTrainerInstructions || "",
+	).trim();
+	if (!apiKey) {
+		showToast("Please add your OpenAI API key in settings first");
+		return null;
+	}
+
+	const profile = buildGoalRecommendationProfile();
+	const recommendationPrompt = [
+		"You are a personal trainer and nutrition coach.",
+		"Recommend a realistic calorie and daily nutrient plan tailored to the user profile.",
+		"Respect the user instructions and account for dietary needs, injuries, and limitations.",
+		"Return ONLY valid JSON in this exact shape:",
+		'{"dailyTarget": number|null, "goal": "lose"|"maintain"|"gain"|null, "nutrientGoals": {"macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}}.',
+		"Use grams for macros, milligrams for micros and vitaminC/vitaminB6, and micrograms for vitaminA/vitaminD/vitaminB12.",
+		"Use numbers only, no units, no extra keys, no markdown, no explanation.",
+	].join(" ");
+	const userPayload = JSON.stringify(
+		{
+			profile,
+			instructions: trainerInstructions || null,
+		},
+		null,
+		2,
+	);
+
+	try {
+		const usingReasoning =
+			reasoningEffort !== "none" && supportsReasoningEffort(model);
+		const requestBody = {
+			model,
+			messages: [
+				{
+					role: "system",
+					content: recommendationPrompt,
+				},
+				{
+					role: "user",
+					content: userPayload,
+				},
+			],
+			max_completion_tokens: usingReasoning
+				? OPENAI_MAX_TOKENS_WITH_REASONING
+				: OPENAI_MAX_TOKENS_STANDARD,
+		};
+		if (!usingReasoning) {
+			requestBody.temperature = 1;
+		}
+		if (usingReasoning) {
+			requestBody.reasoning_effort = reasoningEffort;
+			resetReasoningSupportToast();
+		} else if (reasoningEffort !== "none") {
+			showReasoningUnsupportedToastOnce();
+		}
+		const response = await fetch("https://api.openai.com/v1/chat/completions", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`,
+			},
+			body: JSON.stringify(requestBody),
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			console.error("OpenAI API error:", error);
+			showToast(`API error: ${error.error?.message || "Unknown error"}`);
+			return null;
+		}
+		const data = await response.json();
+		const aiText = data.choices[0]?.message?.content?.trim() || "";
+		if (!aiText) {
+			showToast("No response from AI");
+			return null;
+		}
+		const parsedPayload = parseAIJsonPayload(aiText);
+		const recommendation = normalizeAIRecommendedPlan(parsedPayload);
+		if (!recommendation) {
+			showToast("Could not parse goal recommendations from AI response");
+			return null;
+		}
+		return recommendation;
+	} catch (error) {
+		console.error("Error calling OpenAI API:", error);
+		showToast("Failed to recommend goals. Check your internet connection.");
+		return null;
+	}
+}
+
 async function estimateCaloriesWithAI(noteText) {
 	const apiKey = sanitizeBearerToken(state.settings.openaiApiKey);
 	const model = normalizeOpenAIModel(state.settings.openaiModel);
@@ -3541,7 +3797,9 @@ async function estimateCaloriesWithAI(noteText) {
 					content: noteText,
 				},
 			],
-			max_completion_tokens: usingReasoning ? 4096 : 320,
+			max_completion_tokens: usingReasoning
+				? OPENAI_MAX_TOKENS_WITH_REASONING
+				: OPENAI_MAX_TOKENS_STANDARD,
 		};
 		if (!usingReasoning) {
 			requestBody.temperature = 1;
@@ -3707,6 +3965,11 @@ function initButtons() {
 		void saveState();
 	});
 
+	$("openai-trainer-instructions").addEventListener("change", (event) => {
+		state.settings.openaiTrainerInstructions = String(event.target.value || "");
+		void saveState();
+	});
+
 	$("theme-preset-select").addEventListener("change", (event) => {
 		setThemePreset(event.target.value);
 		applyThemeColors();
@@ -3831,6 +4094,48 @@ function initButtons() {
 	$("note-editor-close").addEventListener("click", closeNoteEditor);
 	$("note-editor-save").addEventListener("click", saveNoteEditor);
 	$("note-editor-delete").addEventListener("click", removeNote);
+	$("calorie-goal-recommend-btn").addEventListener("click", async () => {
+		const button = $("calorie-goal-recommend-btn");
+		const originalText = button.textContent;
+		button.disabled = true;
+		button.textContent = "Recommending...";
+		const recommendation = await recommendGoalPlanWithAI();
+		button.disabled = false;
+		button.textContent = originalText;
+		if (!recommendation) return;
+		const settings = getCalorieSettings();
+		let updated = false;
+		if (
+			Number.isFinite(recommendation.dailyTarget) &&
+			recommendation.dailyTarget > 0
+		) {
+			setCalorieTargetSettings(settings, recommendation.dailyTarget);
+			updated = true;
+		}
+		if (recommendation.goal) {
+			settings.goal = recommendation.goal;
+			updated = true;
+		}
+		const hasRecommendedNutrients = hasAnyNutrientValue(
+			recommendation.nutrientGoals?.macros,
+			recommendation.nutrientGoals?.micros,
+			recommendation.nutrientGoals?.vitamins,
+			{
+				positiveOnly: true,
+			},
+		);
+		if (hasRecommendedNutrients) {
+			settings.nutrientGoals = recommendation.nutrientGoals;
+			updated = true;
+		}
+		if (!updated) {
+			showToast("AI returned no usable updates");
+			return;
+		}
+		void saveState();
+		renderCalories();
+		showToast("Applied AI goal recommendations");
+	});
 	$("note-editor-ai-estimate").addEventListener("click", async () => {
 		const noteContent = $("note-editor-content").value;
 		const button = $("note-editor-ai-estimate");
@@ -4037,6 +4342,8 @@ function renderSettings() {
 	);
 	if (unitSelect) unitSelect.value = unitSystem;
 	$("openai-api-key").value = state.settings.openaiApiKey || "";
+	$("openai-trainer-instructions").value =
+		state.settings.openaiTrainerInstructions || "";
 	renderOpenAIModelOptions();
 	if (reasoningSelect) {
 		reasoningSelect.value = normalizeOpenAIReasoningEffort(
