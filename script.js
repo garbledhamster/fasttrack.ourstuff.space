@@ -4169,7 +4169,7 @@ async function callAIChatCompletions({
 		return null;
 	}
 	if (config.provider === "byo" && config.headers === null) {
-		showToast("BYO custom headers must be valid JSON");
+		showToast("Bring your own LLM headers must be valid JSON");
 		return null;
 	}
 
