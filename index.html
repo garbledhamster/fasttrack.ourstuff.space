@@ -1007,8 +1007,13 @@
         <textarea id="note-editor-content" rows="5" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="What do you want to remember?"></textarea>
         <div id="note-editor-markdown-preview" class="note-markdown note-editor-markdown-preview hidden"></div>
         <div id="note-editor-trainer-response-wrap" class="hidden mt-3">
-          <label for="note-editor-trainer-response" class="block text-sm md:text-xs text-muted mb-1">Response note</label>
-          <textarea id="note-editor-trainer-response" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Reply to the trainer or leave feedback on this response."></textarea>
+          <label for="note-editor-trainer-response" class="block text-sm md:text-xs text-muted mb-1">Trainer conversation</label>
+          <div id="note-editor-trainer-thread" class="note-trainer-thread mb-2"></div>
+          <textarea id="note-editor-trainer-response" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Ask a follow-up question for this trainer note."></textarea>
+          <div id="note-editor-trainer-actions" class="note-trainer-actions mt-2">
+            <span id="note-editor-trainer-count" class="note-trainer-count">0 / 500</span>
+            <button id="note-editor-trainer-send" type="button" class="py-2 px-3 rounded-lg button-accent border text-xs font-semibold">Send to trainer</button>
+          </div>
         </div>
         <div id="note-editor-nutrition-wrap" class="mt-3 space-y-3">
           <div>
