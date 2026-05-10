@@ -5673,6 +5673,19 @@ function initButtons() {
 	$("edit-history-delete").addEventListener("click", deleteEditedHistoryEntry);
 
 	$("new-note-btn").addEventListener("click", () => openNoteEditor());
+	const trainerOptionsToggle = $("trainer-options-toggle");
+	const trainerOptionsPanel = $("trainer-options-panel");
+	if (trainerOptionsToggle && trainerOptionsPanel) {
+		trainerOptionsToggle.addEventListener("click", () => {
+			const isOpen = trainerOptionsPanel.classList.toggle("is-open");
+			trainerOptionsToggle.classList.toggle("is-open", isOpen);
+			trainerOptionsToggle.setAttribute("aria-expanded", String(isOpen));
+			trainerOptionsPanel.setAttribute("aria-hidden", String(!isOpen));
+			trainerOptionsToggle.textContent = isOpen
+				? "↑↑↑ HIDE TRAINER OPTIONS ↑↑↑"
+				: "↓↓↓ SHOW MORE TRAINER OPTIONS ↓↓↓";
+		});
+	}
 	const updateAITrainerNotesRangeOverride = (event) => {
 		aiTrainerNotesRangeOverride = normalizeOpenAINotesRange(event.target.value);
 		renderAITrainerNotesRangeOverride();

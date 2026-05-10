@@ -428,78 +428,81 @@
             </div>
             <button id="new-note-btn" type="button" class="w-full py-4 md:py-3 rounded-full button-primary font-semibold text-base md:text-sm">New note</button>
             <button id="ai-trainer-note-btn" type="button" class="w-full py-4 md:py-3 rounded-full button-accent border font-semibold text-base md:text-sm">AI Trainer Note</button>
-            <div class="trainer-note-range-block">
-              <label class="block text-sm md:text-xs text-muted mb-1" for="ai-trainer-notes-range">Notes to send to trainer</label>
-              <input id="ai-trainer-notes-range" type="range" min="0" max="18" step="1" class="w-full trainer-range">
-              <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
-                <span>No notes</span>
-                <span id="ai-trainer-notes-range-label" class="font-medium text-default">Global default</span>
-                <span>All notes</span>
+            <div id="trainer-options-panel" class="trainer-options-panel" aria-hidden="true">
+              <div class="trainer-note-range-block">
+                <label class="block text-sm md:text-xs text-muted mb-1" for="ai-trainer-notes-range">Notes to send to trainer</label>
+                <input id="ai-trainer-notes-range" type="range" min="0" max="18" step="1" class="w-full trainer-range">
+                <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
+                  <span>No notes</span>
+                  <span id="ai-trainer-notes-range-label" class="font-medium text-default">Global default</span>
+                  <span>All notes</span>
+                </div>
               </div>
+              <section class="trainer-provider-override-panel" aria-labelledby="trainer-provider-override-title">
+                <div class="trainer-provider-override-header">
+                  <div>
+                    <h3 id="trainer-provider-override-title" class="trainer-provider-override-title">Model override</h3>
+                    <div id="trainer-provider-override-subtitle" class="trainer-provider-override-subtitle">Global default: OpenAI</div>
+                  </div>
+                  <button id="ai-trainer-provider-override-clear" type="button" class="trainer-provider-override-clear">USE DEFAULT</button>
+                </div>
+                <div class="trainer-provider-override-options" role="radiogroup" aria-label="Override AI trainer model provider">
+                  <label class="trainer-provider-override-option">
+                    <input id="ai-trainer-provider-override-openai" type="radio" name="ai-trainer-provider-override" value="openai" class="accent-brand-500">
+                    <span>OpenAI</span>
+                  </label>
+                  <label class="trainer-provider-override-option">
+                    <input id="ai-trainer-provider-override-byo" type="radio" name="ai-trainer-provider-override" value="byo" class="accent-brand-500">
+                    <span>Custom model</span>
+                  </label>
+                </div>
+              </section>
+              <section class="trainer-filter-panel" aria-labelledby="trainer-note-filters-title">
+                <div class="trainer-filter-header">
+                  <div>
+                    <h3 id="trainer-note-filters-title" class="trainer-filter-title">Note filters</h3>
+                    <div id="trainer-note-filters-subtitle" class="trainer-filter-subtitle">No filters selected. Trainer can use every note in range.</div>
+                  </div>
+                  <button id="ai-trainer-clear-filters" type="button" class="trainer-filter-clear">CLEAR FILTERS</button>
+                </div>
+                <div class="trainer-filter-grid" role="group" aria-label="Filter notes sent to trainer">
+                  <button type="button" class="trainer-filter-btn" data-trainer-note-filter="trainer">
+                    <span class="trainer-filter-copy">
+                      <span class="trainer-filter-label">TRAINER NOTES</span>
+                      <span class="trainer-filter-detail">Prior AI coaching notes</span>
+                    </span>
+                  </button>
+                  <button type="button" class="trainer-filter-btn" data-trainer-note-filter="user">
+                    <span class="trainer-filter-copy">
+                      <span class="trainer-filter-label">YOUR NOTES</span>
+                      <span class="trainer-filter-detail">Notes you wrote</span>
+                    </span>
+                  </button>
+                  <button type="button" class="trainer-filter-btn" data-trainer-note-filter="fast">
+                    <span class="trainer-filter-copy">
+                      <span class="trainer-filter-label">FAST NOTES</span>
+                      <span class="trainer-filter-detail">Created during a fast</span>
+                    </span>
+                  </button>
+                  <button type="button" class="trainer-filter-btn" data-trainer-note-filter="nofast">
+                    <span class="trainer-filter-copy">
+                      <span class="trainer-filter-label">NO-FAST NOTES</span>
+                      <span class="trainer-filter-detail">Created outside a fast</span>
+                    </span>
+                  </button>
+                </div>
+              </section>
+              <section class="trainer-question-panel" aria-labelledby="trainer-quick-question-title">
+                <div class="trainer-question-header">
+                  <h3 id="trainer-quick-question-title" class="trainer-question-title">Quick Question for your Trainer</h3>
+                  <span id="trainer-quick-question-count" class="trainer-question-count">0 / 500</span>
+                </div>
+                <textarea id="trainer-quick-question-input" rows="3" maxlength="500" aria-labelledby="trainer-quick-question-title" class="trainer-question-input" placeholder="Ask one clear question (up to one paragraph)."></textarea>
+                <p class="trainer-question-help">You'll get one paragraph back and it will be saved as an AI trainer note.</p>
+                <button id="trainer-quick-question-send" type="button" class="w-full py-3 md:py-2.5 rounded-xl button-accent border text-sm md:text-xs font-semibold">Send</button>
+              </section>
             </div>
-            <section class="trainer-provider-override-panel" aria-labelledby="trainer-provider-override-title">
-              <div class="trainer-provider-override-header">
-                <div>
-                  <h3 id="trainer-provider-override-title" class="trainer-provider-override-title">Model override</h3>
-                  <div id="trainer-provider-override-subtitle" class="trainer-provider-override-subtitle">Global default: OpenAI</div>
-                </div>
-                <button id="ai-trainer-provider-override-clear" type="button" class="trainer-provider-override-clear">USE DEFAULT</button>
-              </div>
-              <div class="trainer-provider-override-options" role="radiogroup" aria-label="Override AI trainer model provider">
-                <label class="trainer-provider-override-option">
-                  <input id="ai-trainer-provider-override-openai" type="radio" name="ai-trainer-provider-override" value="openai" class="accent-brand-500">
-                  <span>OpenAI</span>
-                </label>
-                <label class="trainer-provider-override-option">
-                  <input id="ai-trainer-provider-override-byo" type="radio" name="ai-trainer-provider-override" value="byo" class="accent-brand-500">
-                  <span>Custom model</span>
-                </label>
-              </div>
-            </section>
-            <section class="trainer-filter-panel" aria-labelledby="trainer-note-filters-title">
-              <div class="trainer-filter-header">
-                <div>
-                  <h3 id="trainer-note-filters-title" class="trainer-filter-title">Note filters</h3>
-                  <div id="trainer-note-filters-subtitle" class="trainer-filter-subtitle">No filters selected. Trainer can use every note in range.</div>
-                </div>
-                <button id="ai-trainer-clear-filters" type="button" class="trainer-filter-clear">CLEAR FILTERS</button>
-              </div>
-              <div class="trainer-filter-grid" role="group" aria-label="Filter notes sent to trainer">
-                <button type="button" class="trainer-filter-btn" data-trainer-note-filter="trainer">
-                  <span class="trainer-filter-copy">
-                    <span class="trainer-filter-label">TRAINER NOTES</span>
-                    <span class="trainer-filter-detail">Prior AI coaching notes</span>
-                  </span>
-                </button>
-                <button type="button" class="trainer-filter-btn" data-trainer-note-filter="user">
-                  <span class="trainer-filter-copy">
-                    <span class="trainer-filter-label">YOUR NOTES</span>
-                    <span class="trainer-filter-detail">Notes you wrote</span>
-                  </span>
-                </button>
-                <button type="button" class="trainer-filter-btn" data-trainer-note-filter="fast">
-                  <span class="trainer-filter-copy">
-                    <span class="trainer-filter-label">FAST NOTES</span>
-                    <span class="trainer-filter-detail">Created during a fast</span>
-                  </span>
-                </button>
-                <button type="button" class="trainer-filter-btn" data-trainer-note-filter="nofast">
-                  <span class="trainer-filter-copy">
-                    <span class="trainer-filter-label">NO-FAST NOTES</span>
-                    <span class="trainer-filter-detail">Created outside a fast</span>
-                  </span>
-                </button>
-              </div>
-            </section>
-            <section class="trainer-question-panel" aria-labelledby="trainer-quick-question-title">
-              <div class="trainer-question-header">
-                <h3 id="trainer-quick-question-title" class="trainer-question-title">Quick Question for your Trainer</h3>
-                <span id="trainer-quick-question-count" class="trainer-question-count">0 / 500</span>
-              </div>
-              <textarea id="trainer-quick-question-input" rows="3" maxlength="500" aria-labelledby="trainer-quick-question-title" class="trainer-question-input" placeholder="Ask one clear question (up to one paragraph)."></textarea>
-              <p class="trainer-question-help">You'll get one paragraph back and it will be saved as an AI trainer note.</p>
-              <button id="trainer-quick-question-send" type="button" class="w-full py-3 md:py-2.5 rounded-xl button-accent border text-sm md:text-xs font-semibold">Send</button>
-            </section>
+            <button id="trainer-options-toggle" type="button" class="trainer-options-toggle" aria-expanded="false" aria-controls="trainer-options-panel">↓↓↓ SHOW MORE TRAINER OPTIONS ↓↓↓</button>
           </div>
 
           <div class="notes-drawer-content notes-drawer-content--notes flex-1 min-h-0 overflow-y-auto pt-3">
