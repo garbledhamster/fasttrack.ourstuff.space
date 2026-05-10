@@ -1432,11 +1432,29 @@ function clearWrappedKeyStorage(uid) {
 
 function openDeviceKeyDb() {
 	return new Promise((resolve, reject) => {
-		const req = indexedDB.open(DEVICE_KEY_DB, 1);
+		const req = indexedDB.open(DEVICE_KEY_DB);
 		req.onupgradeneeded = () => {
-			req.result.createObjectStore(DEVICE_KEY_STORE);
+			if (!req.result.objectStoreNames.contains(DEVICE_KEY_STORE)) {
+				req.result.createObjectStore(DEVICE_KEY_STORE);
+			}
 		};
-		req.onsuccess = () => resolve(req.result);
+		req.onsuccess = () => {
+			const db = req.result;
+			if (db.objectStoreNames.contains(DEVICE_KEY_STORE)) {
+				resolve(db);
+				return;
+			}
+			const nextVersion = Math.max(db.version || 1, 1) + 1;
+			db.close();
+			const upgradeReq = indexedDB.open(DEVICE_KEY_DB, nextVersion);
+			upgradeReq.onupgradeneeded = () => {
+				if (!upgradeReq.result.objectStoreNames.contains(DEVICE_KEY_STORE)) {
+					upgradeReq.result.createObjectStore(DEVICE_KEY_STORE);
+				}
+			};
+			upgradeReq.onsuccess = () => resolve(upgradeReq.result);
+			upgradeReq.onerror = () => reject(upgradeReq.error);
+		};
 		req.onerror = () => reject(req.error);
 	});
 }
@@ -1867,26 +1885,59 @@ async function resolveUserSalt(uid, payloadSalt) {
 	return decodeBase64(storedSalt);
 }
 
+async function ensureSessionCryptoKey(
+	uid,
+	{ allowBootstrapGenerate = false } = {},
+) {
+	if (cryptoKey) return;
+
+	if (pendingPassword) {
+		cryptoKey = await deriveKeyFromPassword(pendingPassword, keySalt);
+		pendingPassword = null;
+		if (authRememberChoice) await wrapEncryptionKeyForDevice(uid);
+		return;
+	}
+
+	const cachedKey = await unwrapEncryptionKeyFromDevice(uid);
+	if (cachedKey) {
+		cryptoKey = cachedKey;
+		return;
+	}
+
+	if (allowBootstrapGenerate) {
+		cryptoKey = await crypto.subtle.generateKey(
+			{ name: "AES-GCM", length: 256 },
+			true,
+			["encrypt", "decrypt"],
+		);
+		if (authRememberChoice) await wrapEncryptionKeyForDevice(uid);
+		return;
+	}
+
+	throw new Error("missing-password");
+}
+
+function isValidEncryptedPayload(payload) {
+	return (
+		Boolean(payload) &&
+		typeof payload.iv === "string" &&
+		typeof payload.ciphertext === "string"
+	);
+}
+
 async function loadState() {
 	const user = auth.currentUser;
 	if (!user) return clone(defaultState);
 
-	const payload = await resolveEncryptedPayload(user.uid);
+	const resolvedPayload = await resolveEncryptedPayload(user.uid);
+	const payload = isValidEncryptedPayload(resolvedPayload)
+		? resolvedPayload
+		: null;
 	const saltBytes = await resolveUserSalt(user.uid, payload?.salt);
 	keySalt = saltBytes;
 
 	if (!payload) {
-		if (!cryptoKey) {
-			if (pendingPassword) {
-				cryptoKey = await deriveKeyFromPassword(pendingPassword, keySalt);
-				pendingPassword = null;
-				if (authRememberChoice) await wrapEncryptionKeyForDevice(user.uid);
-			} else {
-				const cachedKey = await unwrapEncryptionKeyFromDevice(user.uid);
-				if (cachedKey) cryptoKey = cachedKey;
-				else throw new Error("missing-password");
-			}
-		}
+		await ensureSessionCryptoKey(user.uid, { allowBootstrapGenerate: true });
 
 		const newState = clone(defaultState);
 
@@ -1903,19 +1954,7 @@ async function loadState() {
 		return newState;
 	}
 
-	if (!payload.iv || !payload.ciphertext) throw new Error("invalid-payload");
-
-	if (!cryptoKey) {
-		if (pendingPassword) {
-			cryptoKey = await deriveKeyFromPassword(pendingPassword, keySalt);
-			pendingPassword = null;
-			if (authRememberChoice) await wrapEncryptionKeyForDevice(user.uid);
-		} else {
-			const cachedKey = await unwrapEncryptionKeyFromDevice(user.uid);
-			if (cachedKey) cryptoKey = cachedKey;
-			else throw new Error("missing-password");
-		}
-	}
+	await ensureSessionCryptoKey(user.uid);
 
 	try {
 		const decrypted = await decryptStatePayload(payload);
