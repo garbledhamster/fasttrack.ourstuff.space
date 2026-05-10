@@ -4409,7 +4409,9 @@ async function generateTrainerNoteWithAI() {
 		return aiText;
 	} catch (error) {
 		console.error("Error calling AI API:", error);
-		showToast("Failed to generate trainer note. Check your internet connection.");
+		showToast(
+			"Failed to generate trainer note. Check your internet connection.",
+		);
 		return null;
 	}
 }
