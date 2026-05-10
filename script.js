@@ -7008,28 +7008,29 @@ function renderNotesTab() {
 		return;
 	}
 
-	const visibleNotes = getNotesForTrainer(getAITrainerNotesRangeOverride());
-	const hiddenCount = Math.max(0, notes.length - visibleNotes.length);
-	const visibleLabel = visibleNotes.length === 1 ? "note" : "notes";
+	const previewNotes = getNotesForTrainer(getAITrainerNotesRangeOverride());
+	const hiddenCount = Math.max(0, notes.length - previewNotes.length);
+	const visibleLabel = previewNotes.length === 1 ? "note" : "notes";
 	const totalLabel = notes.length === 1 ? "note" : "notes";
 	empty.classList.add("hidden");
 	if (viewerSummary) {
-		viewerSummary.textContent =
-			hiddenCount > 0
-				? `Showing ${visibleNotes.length} of ${notes.length} ${totalLabel} selected for trainer preview.`
-				: visibleNotes.length
-					? `Showing all ${visibleNotes.length} ${visibleLabel} selected for trainer preview.`
-					: "Trainer preview is set to send no notes.";
+		if (hiddenCount > 0) {
+			viewerSummary.textContent = `Showing ${previewNotes.length} of ${notes.length} ${totalLabel} selected for trainer preview.`;
+		} else if (previewNotes.length) {
+			viewerSummary.textContent = `Showing all ${previewNotes.length} ${visibleLabel} selected for trainer preview.`;
+		} else {
+			viewerSummary.textContent = "Trainer preview is set to send no notes.";
+		}
 		viewerSummary.classList.remove("hidden");
 	}
-	if (!visibleNotes.length) {
+	if (!previewNotes.length) {
 		emptyTitle.textContent = "No notes selected";
 		emptyBody.textContent =
 			"Adjust the trainer note range or filters above to preview notes that will be sent.";
 		empty.classList.remove("hidden");
 		return;
 	}
-	visibleNotes.forEach((note) => {
+	previewNotes.forEach((note) => {
 		list.appendChild(buildNoteCard(note));
 	});
 }

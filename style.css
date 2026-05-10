@@ -1177,6 +1177,7 @@ body.bg-slate-950 {
 
 /* Notes list scroll styling */
 .notes-drawer-content {
+	--notes-drawer-top-spacing: 12px;
 	scrollbar-gutter: stable;
 	scrollbar-width: thin;
 	scrollbar-color: rgb(148, 163, 184, 0.6) rgb(15, 23, 42, 0.6);
@@ -1184,7 +1185,7 @@ body.bg-slate-950 {
 }
 
 .notes-drawer-content--notes {
-	padding-top: 12px;
+	padding-top: var(--notes-drawer-top-spacing);
 }
 
 .notes-drawer-content::-webkit-scrollbar {
@@ -1194,7 +1195,7 @@ body.bg-slate-950 {
 .notes-drawer-content::-webkit-scrollbar-track {
 	background: rgb(15, 23, 42, 0.6);
 	border-radius: 999px;
-	margin: 12px 0 8px;
+	margin: var(--notes-drawer-top-spacing) 0 8px;
 }
 
 .notes-drawer-content::-webkit-scrollbar-thumb {
