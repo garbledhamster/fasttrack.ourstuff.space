@@ -7014,9 +7014,9 @@ function renderNotesTab() {
 	if (viewerSummary) {
 		viewerSummary.textContent =
 			hiddenCount > 0
-				? `Showing ${visibleNotes.length} of ${notes.length} notes selected for the trainer preview.`
+				? `Showing ${visibleNotes.length} of ${notes.length} notes selected for trainer preview.`
 				: visibleNotes.length
-					? `Showing all ${visibleNotes.length} notes selected for the trainer preview.`
+					? `Showing all ${visibleNotes.length} notes selected for trainer preview.`
 					: "Trainer preview is set to send no notes.";
 		viewerSummary.classList.remove("hidden");
 	}
