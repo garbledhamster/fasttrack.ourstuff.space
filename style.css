@@ -1258,9 +1258,29 @@ body.bg-slate-950 {
 	z-index: 1;
 	width: min(100%, 420px);
 	height: 100%;
-	overflow-y: auto;
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
+	overflow: hidden;
 	transform: translateX(100%);
 	transition: transform 0.25s ease;
+}
+
+.note-editor-scroll {
+	min-height: 0;
+	overflow-y: auto;
+	padding-bottom: 10px;
+}
+
+.note-editor-actions {
+	border-top: 1px solid var(--border-color);
+	padding-top: 12px;
+	background: var(--surface-color);
+}
+
+.note-editor-actions-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+	gap: 8px;
 }
 
 /* open state */
