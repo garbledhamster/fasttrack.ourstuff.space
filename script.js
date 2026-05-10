@@ -5825,6 +5825,64 @@ function getHistoryTrendEntries(selectedDate, dayCount = 7) {
 	return entries;
 }
 
+function getSafeDurationHours(entry, startTs, endTs) {
+	const numericDuration = Number(entry?.durationHours);
+	if (Number.isFinite(numericDuration)) return numericDuration;
+	return computeDurationHours(startTs, endTs) ?? 0;
+}
+
+function appendHistoryAnalyticsCard(container, card) {
+	const cardEl = document.createElement("div");
+	cardEl.className = "history-analytics-card";
+
+	const label = document.createElement("div");
+	label.className = "history-analytics-label";
+	label.textContent = card.label;
+
+	const value = document.createElement("div");
+	value.className = "history-analytics-value";
+	value.textContent = card.value;
+
+	const meta = document.createElement("div");
+	meta.className = "history-analytics-meta";
+	meta.textContent = card.meta;
+
+	cardEl.appendChild(label);
+	cardEl.appendChild(value);
+	cardEl.appendChild(meta);
+	container.appendChild(cardEl);
+}
+
+function appendHistoryComparisonRow(container, entry, trendMax) {
+	const row = document.createElement("div");
+	row.className = "history-chart-row";
+	if (entry.key === selectedDayKey) row.style.opacity = "1";
+	else row.style.opacity = "0.85";
+
+	const dayLabel = document.createElement("div");
+	dayLabel.className = "history-chart-label";
+	dayLabel.textContent = entry.date.toLocaleDateString(undefined, {
+		weekday: "short",
+	});
+
+	const track = document.createElement("div");
+	track.className = "history-chart-track";
+	const fill = document.createElement("div");
+	fill.className = "history-chart-fill";
+	const widthPercent = Math.min(100, (entry.totalHours / trendMax) * 100);
+	fill.style.width = `${widthPercent}%`;
+	track.appendChild(fill);
+
+	const value = document.createElement("div");
+	value.className = "history-chart-value";
+	value.textContent = `${entry.totalHours.toFixed(1)}h`;
+
+	row.appendChild(dayLabel);
+	row.appendChild(track);
+	row.appendChild(value);
+	container.appendChild(row);
+}
+
 function renderHistoryProgressAnalytics(day) {
 	const kpiContainer = $("history-progress-kpis");
 	const chartContainer = $("history-progress-chart");
@@ -5863,55 +5921,10 @@ function renderHistoryProgressAnalytics(day) {
 	];
 
 	analyticsCards.forEach((card) => {
-		const cardEl = document.createElement("div");
-		cardEl.className = "history-analytics-card";
-
-		const label = document.createElement("div");
-		label.className = "history-analytics-label";
-		label.textContent = card.label;
-
-		const value = document.createElement("div");
-		value.className = "history-analytics-value";
-		value.textContent = card.value;
-
-		const meta = document.createElement("div");
-		meta.className = "history-analytics-meta";
-		meta.textContent = card.meta;
-
-		cardEl.appendChild(label);
-		cardEl.appendChild(value);
-		cardEl.appendChild(meta);
-		kpiContainer.appendChild(cardEl);
+		appendHistoryAnalyticsCard(kpiContainer, card);
 	});
-
 	trend.forEach((entry) => {
-		const row = document.createElement("div");
-		row.className = "history-chart-row";
-		if (entry.key === selectedDayKey) row.style.opacity = "1";
-		else row.style.opacity = "0.85";
-
-		const dayLabel = document.createElement("div");
-		dayLabel.className = "history-chart-label";
-		dayLabel.textContent = entry.date.toLocaleDateString(undefined, {
-			weekday: "short",
-		});
-
-		const track = document.createElement("div");
-		track.className = "history-chart-track";
-		const fill = document.createElement("div");
-		fill.className = "history-chart-fill";
-		const widthPercent = Math.min(100, (entry.totalHours / trendMax) * 100);
-		fill.style.width = `${widthPercent}%`;
-		track.appendChild(fill);
-
-		const value = document.createElement("div");
-		value.className = "history-chart-value";
-		value.textContent = `${entry.totalHours.toFixed(1)}h`;
-
-		row.appendChild(dayLabel);
-		row.appendChild(track);
-		row.appendChild(value);
-		chartContainer.appendChild(row);
+		appendHistoryComparisonRow(chartContainer, entry, trendMax);
 	});
 }
 
@@ -5944,9 +5957,16 @@ function renderDayDetails() {
 		const displayStart = e.displayStartTimestamp ?? e.startTimestamp;
 		const displayEnd = e.displayEndTimestamp ?? e.endTimestamp;
 		const sourceEntry = e.sourceEntry ?? e;
-		const spanStart = new Date(displayStart);
-		const spanEnd = new Date(displayEnd);
-		const spansMultipleDays = !isSameLocalDay(spanStart, spanEnd);
+		const actualStartTs = Number.isFinite(sourceEntry.startTimestamp)
+			? sourceEntry.startTimestamp
+			: displayStart;
+		const actualEndTs = Number.isFinite(sourceEntry.endTimestamp)
+			? sourceEntry.endTimestamp
+			: displayEnd;
+		const spansMultipleDays = !isSameLocalDay(
+			new Date(actualStartTs),
+			new Date(actualEndTs),
+		);
 		const row = document.createElement("div");
 		row.className = "history-fast-card";
 
@@ -5954,10 +5974,7 @@ function renderDayDetails() {
 		const title = document.createElement("div");
 		title.className = "history-fast-title";
 		const label = type ? type.label : "Custom";
-		const numericDuration = Number(e.durationHours);
-		const durationHours = Number.isFinite(numericDuration)
-			? numericDuration
-			: (computeDurationHours(displayStart, displayEnd) ?? 0);
+		const durationHours = getSafeDurationHours(e, displayStart, displayEnd);
 		title.textContent = e.isActive
 			? `Active • ${label} fast`
 			: `${label} • ${durationHours.toFixed(1)}h`;
@@ -6226,11 +6243,15 @@ function renderRecentFasts() {
 	const recentEntries = state.history.slice(0, 10);
 	const maxDuration = Math.max(
 		1,
-		...recentEntries.map((entry) => Number(entry.durationHours) || 0),
+		...recentEntries.map((entry) =>
+			getSafeDurationHours(entry, entry.startTimestamp, entry.endTimestamp),
+		),
 	);
 	const averageDuration =
 		recentEntries.reduce(
-			(sum, entry) => sum + (Number(entry.durationHours) || 0),
+			(sum, entry) =>
+				sum +
+				getSafeDurationHours(entry, entry.startTimestamp, entry.endTimestamp),
 			0,
 		) / recentEntries.length;
 
@@ -6241,7 +6262,7 @@ function renderRecentFasts() {
 		const type = getTypeById(e.typeId);
 		const title = document.createElement("div");
 		title.className = "history-fast-title";
-		const duration = Number(e.durationHours) || 0;
+		const duration = getSafeDurationHours(e, e.startTimestamp, e.endTimestamp);
 		title.textContent = `${type ? type.label : "Custom"} • ${duration.toFixed(1)}h`;
 
 		const start = new Date(e.startTimestamp);
