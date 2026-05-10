@@ -1444,7 +1444,7 @@ function openDeviceKeyDb() {
 				resolve(db);
 				return;
 			}
-			const nextVersion = (db.version || 1) + 1;
+			const nextVersion = db.version + 1;
 			db.close();
 			const upgradeReq = indexedDB.open(DEVICE_KEY_DB, nextVersion);
 			upgradeReq.onupgradeneeded = () => {
