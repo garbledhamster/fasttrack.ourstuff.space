@@ -300,6 +300,8 @@ const defaultState = {
 			maxCompletionTokens: OPENAI_MAX_TOKENS_WITH_REASONING,
 			temperature: 1,
 			headersJson: "",
+			trainerInstructions: "",
+			notesRange: 0,
 		},
 		calories: {
 			dailyTarget: null,
@@ -3913,7 +3915,11 @@ function normalizeOpenAINotesRange(value) {
 }
 
 function getNotesForTrainer() {
-	const range = normalizeOpenAINotesRange(state.settings.openaiNotesRange);
+	const provider = normalizeLLMProvider(state.settings.llmProvider);
+	const range =
+		provider === "byo"
+			? normalizeOpenAINotesRange(state.settings.byoLlm?.notesRange)
+			: normalizeOpenAINotesRange(state.settings.openaiNotesRange);
 	if (range === 0 || !notes.length) return [];
 	const now = Date.now();
 	const sorted = [...notes].sort(
@@ -3963,6 +3969,11 @@ function normalizeByoLlmSettings(value) {
 				: 1,
 		headersJson:
 			typeof raw.headersJson === "string" ? raw.headersJson.trim() : "",
+		trainerInstructions:
+			typeof raw.trainerInstructions === "string"
+				? raw.trainerInstructions
+				: "",
+		notesRange: normalizeOpenAINotesRange(raw.notesRange),
 	};
 }
 
@@ -4230,8 +4241,12 @@ async function callAIChatCompletions({
 }
 
 async function recommendGoalPlanWithAI() {
+	const provider = normalizeLLMProvider(state.settings.llmProvider);
+	const byoLlm = normalizeByoLlmSettings(state.settings.byoLlm);
 	const trainerInstructions = String(
-		state.settings.openaiTrainerInstructions || "",
+		provider === "byo"
+			? byoLlm.trainerInstructions
+			: state.settings.openaiTrainerInstructions || "",
 	).trim();
 
 	const profile = buildGoalRecommendationProfile();
@@ -4554,6 +4569,13 @@ function initButtons() {
 		state.settings.openaiTrainerInstructions = String(event.target.value || "");
 		void saveState();
 	});
+	$("byo-llm-trainer-instructions").addEventListener("change", (event) => {
+		state.settings.byoLlm = normalizeByoLlmSettings({
+			...state.settings.byoLlm,
+			trainerInstructions: String(event.target.value || ""),
+		});
+		void saveState();
+	});
 
 	$("openai-notes-range").addEventListener("input", (event) => {
 		state.settings.openaiNotesRange = normalizeOpenAINotesRange(
@@ -4563,6 +4585,17 @@ function initButtons() {
 		if (label)
 			label.textContent =
 				OPENAI_NOTES_RANGE_LABELS[state.settings.openaiNotesRange];
+		void saveState();
+	});
+	$("byo-llm-notes-range").addEventListener("input", (event) => {
+		state.settings.byoLlm = normalizeByoLlmSettings({
+			...state.settings.byoLlm,
+			notesRange: event.target.value,
+		});
+		const normalizedByo = normalizeByoLlmSettings(state.settings.byoLlm);
+		const label = $("byo-llm-notes-range-label");
+		if (label)
+			label.textContent = OPENAI_NOTES_RANGE_LABELS[normalizedByo.notesRange];
 		void saveState();
 	});
 
@@ -4926,6 +4959,14 @@ function renderSettings() {
 		llmProvider !== "openai",
 	);
 	$("byo-llm-settings-panel").classList.toggle("hidden", llmProvider !== "byo");
+	$("openai-trainer-settings-panel").classList.toggle(
+		"hidden",
+		llmProvider !== "openai",
+	);
+	$("byo-trainer-settings-panel").classList.toggle(
+		"hidden",
+		llmProvider !== "byo",
+	);
 	$("openai-api-key").value = state.settings.openaiApiKey || "";
 	$("openai-trainer-instructions").value =
 		state.settings.openaiTrainerInstructions || "";
@@ -4936,11 +4977,19 @@ function renderSettings() {
 	$("byo-llm-max-tokens").value = String(byoLlm.maxCompletionTokens);
 	$("byo-llm-temperature").value = String(byoLlm.temperature);
 	$("byo-llm-headers").value = byoLlm.headersJson;
+	$("byo-llm-trainer-instructions").value = byoLlm.trainerInstructions;
 	const notesRangeSlider = $("openai-notes-range");
 	if (notesRangeSlider) {
 		const rangeVal = normalizeOpenAINotesRange(state.settings.openaiNotesRange);
 		notesRangeSlider.value = rangeVal;
 		const label = $("openai-notes-range-label");
+		if (label) label.textContent = OPENAI_NOTES_RANGE_LABELS[rangeVal];
+	}
+	const byoNotesRangeSlider = $("byo-llm-notes-range");
+	if (byoNotesRangeSlider) {
+		const rangeVal = normalizeOpenAINotesRange(byoLlm.notesRange);
+		byoNotesRangeSlider.value = rangeVal;
+		const label = $("byo-llm-notes-range-label");
 		if (label) label.textContent = OPENAI_NOTES_RANGE_LABELS[rangeVal];
 	}
 	renderOpenAIModelOptions();
