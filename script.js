@@ -3543,12 +3543,11 @@ async function estimateCaloriesWithAI(noteText) {
 					content: noteText,
 				},
 			],
-			temperature: 0.3,
+			temperature: 1,
 			max_completion_tokens: 320,
 		};
 		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
 			requestBody.reasoning_effort = reasoningEffort;
-			requestBody.temperature = 1;
 			resetReasoningSupportToast();
 		} else if (reasoningEffort !== "none") {
 			showReasoningUnsupportedToastOnce();
