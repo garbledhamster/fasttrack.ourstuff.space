@@ -7010,13 +7010,15 @@ function renderNotesTab() {
 
 	const visibleNotes = getNotesForTrainer(getAITrainerNotesRangeOverride());
 	const hiddenCount = Math.max(0, notes.length - visibleNotes.length);
+	const visibleLabel = visibleNotes.length === 1 ? "note" : "notes";
+	const totalLabel = notes.length === 1 ? "note" : "notes";
 	empty.classList.add("hidden");
 	if (viewerSummary) {
 		viewerSummary.textContent =
 			hiddenCount > 0
-				? `Showing ${visibleNotes.length} of ${notes.length} notes selected for trainer preview.`
+				? `Showing ${visibleNotes.length} of ${notes.length} ${totalLabel} selected for trainer preview.`
 				: visibleNotes.length
-					? `Showing all ${visibleNotes.length} notes selected for trainer preview.`
+					? `Showing all ${visibleNotes.length} ${visibleLabel} selected for trainer preview.`
 					: "Trainer preview is set to send no notes.";
 		viewerSummary.classList.remove("hidden");
 	}
