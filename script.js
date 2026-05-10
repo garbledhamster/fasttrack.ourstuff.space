@@ -36,6 +36,7 @@ const ENCRYPTION_VERSION = 1;
 const PBKDF2_ITERATIONS = 310000;
 const _NOTES_SCHEMA = Object.freeze({
 	text: "",
+	trainerResponse: "",
 	createdAt: 0,
 	updatedAt: 0,
 	dateKey: "YYYY-MM-DD",
@@ -377,6 +378,7 @@ let editingNoteOpenedAt = null;
 let editingNoteInitialText = "";
 let editingNoteInitialCalories = "";
 let editingNoteInitialNutrition = "";
+let editingNoteInitialTrainerResponse = "";
 let editingNoteMetadata = null;
 let editingNoteReadOnly = false;
 let editingHistoryId = null;
@@ -723,6 +725,7 @@ async function normalizeNoteSnapshot(snap) {
 	const data = snap.data() || {};
 	let text = "";
 	let calorieEntry = null;
+	let trainerResponse = "";
 	if (data?.payload?.iv && data?.payload?.ciphertext) {
 		try {
 			const decrypted = await decryptNotePayload(data.payload);
@@ -731,6 +734,9 @@ async function normalizeNoteSnapshot(snap) {
 			} else if (decrypted && typeof decrypted === "object") {
 				if (typeof decrypted.text === "string") text = decrypted.text;
 				calorieEntry = normalizeCalorieEntry(decrypted.calorieEntry);
+				if (typeof decrypted.trainerResponse === "string") {
+					trainerResponse = decrypted.trainerResponse;
+				}
 			}
 		} catch (err) {
 			if (err?.message === "missing-key") throw err;
@@ -738,6 +744,9 @@ async function normalizeNoteSnapshot(snap) {
 		}
 	} else if (typeof data.text === "string") {
 		text = data.text;
+	}
+	if (!trainerResponse && typeof data.trainerResponse === "string") {
+		trainerResponse = data.trainerResponse;
 	}
 	if (!calorieEntry) calorieEntry = normalizeCalorieEntry(data.calorieEntry);
 	if (!text && calorieEntry?.foodNote) {
@@ -755,6 +764,7 @@ async function normalizeNoteSnapshot(snap) {
 		fastContext: normalizeFastContext(data.fastContext, normalizedCreatedAt),
 		metadata: normalizeNoteMetadata(data.metadata, text),
 		calorieEntry,
+		trainerResponse,
 	};
 }
 
@@ -1034,6 +1044,7 @@ async function buildNotePayload({
 	fastContext,
 	goalContext,
 	calorieEntry,
+	trainerResponse,
 	metadata,
 } = {}) {
 	const createdAt = Date.now();
@@ -1041,6 +1052,8 @@ async function buildNotePayload({
 	const payload = await encryptNotePayload({
 		text: noteText,
 		calorieEntry: calorieEntry ?? null,
+		trainerResponse:
+			typeof trainerResponse === "string" ? trainerResponse.trim() : "",
 	});
 	return {
 		payload,
@@ -1060,13 +1073,20 @@ async function buildNoteUpdatePayload({
 	createdAt,
 	goalContext,
 	calorieEntry,
+	trainerResponse,
 	metadata,
 } = {}) {
 	const payload = { updatedAt: Date.now() };
-	if (typeof text === "string" || calorieEntry !== undefined) {
+	if (
+		typeof text === "string" ||
+		calorieEntry !== undefined ||
+		typeof trainerResponse === "string"
+	) {
 		payload.payload = await encryptNotePayload({
 			text: typeof text === "string" ? text.trim() : "",
 			calorieEntry: calorieEntry ?? null,
+			trainerResponse:
+				typeof trainerResponse === "string" ? trainerResponse.trim() : "",
 		});
 	}
 	if (typeof dateKey === "string") payload.dateKey = dateKey;
@@ -1133,6 +1153,7 @@ async function createNote({
 	dateKey,
 	fastContext,
 	calorieEntry,
+	trainerResponse,
 	metadata,
 } = {}) {
 	const user = auth.currentUser;
@@ -1142,6 +1163,7 @@ async function createNote({
 		dateKey,
 		fastContext,
 		calorieEntry,
+		trainerResponse,
 		metadata,
 	});
 	try {
@@ -1154,7 +1176,15 @@ async function createNote({
 
 async function updateNote(
 	noteId,
-	{ text, dateKey, fastContext, createdAt, calorieEntry, metadata } = {},
+	{
+		text,
+		dateKey,
+		fastContext,
+		createdAt,
+		calorieEntry,
+		trainerResponse,
+		metadata,
+	} = {},
 ) {
 	const user = auth.currentUser;
 	if (!user || !noteId) return;
@@ -1164,6 +1194,7 @@ async function updateNote(
 		fastContext,
 		createdAt,
 		calorieEntry,
+		trainerResponse,
 		metadata,
 	});
 	try {
@@ -1197,6 +1228,10 @@ function openNoteEditor(note = null) {
 	editingNoteMetadata = normalizeNoteMetadata(note?.metadata, note?.text || "");
 	editingNoteReadOnly = isReadOnlyNote(note);
 	$("note-editor-content").value = noteText || legacyFoodNote;
+	const trainerResponseInput = $("note-editor-trainer-response");
+	if (trainerResponseInput) {
+		trainerResponseInput.value = note?.trainerResponse || "";
+	}
 	$("note-editor-calories").value = Number.isFinite(
 		note?.calorieEntry?.calories,
 	)
@@ -1206,6 +1241,7 @@ function openNoteEditor(note = null) {
 	editingNoteInitialText = $("note-editor-content").value.trim();
 	editingNoteInitialCalories = $("note-editor-calories").value.trim();
 	editingNoteInitialNutrition = serializeNoteEditorNutritionFields();
+	editingNoteInitialTrainerResponse = trainerResponseInput?.value.trim() || "";
 	updateNoteEditorMeta();
 	$("note-editor-delete").classList.toggle("hidden", !editingNoteId);
 	applyNoteEditorReadOnlyState(editingNoteReadOnly);
@@ -1238,6 +1274,7 @@ function serializeNoteEditorNutritionFields() {
 function applyNoteEditorReadOnlyState(readOnly) {
 	const modal = $("note-editor-modal");
 	if (modal) modal.classList.toggle("is-read-only", Boolean(readOnly));
+	const isTrainerNote = editingNoteMetadata?.source === AI_TRAINER_NOTE_SOURCE;
 	const content = $("note-editor-content");
 	if (content) content.readOnly = Boolean(readOnly);
 	const markdownPreview = $("note-editor-markdown-preview");
@@ -1258,8 +1295,17 @@ function applyNoteEditorReadOnlyState(readOnly) {
 	);
 	const estimateButton = $("note-editor-ai-estimate");
 	if (estimateButton) estimateButton.disabled = Boolean(readOnly);
+	const responseWrap = $("note-editor-trainer-response-wrap");
+	if (responseWrap) {
+		responseWrap.classList.toggle("hidden", !isTrainerNote);
+	}
+	const responseInput = $("note-editor-trainer-response");
+	if (responseInput) responseInput.readOnly = !isTrainerNote;
 	const saveButton = $("note-editor-save");
-	if (saveButton) saveButton.classList.toggle("hidden", Boolean(readOnly));
+	if (saveButton) {
+		saveButton.classList.toggle("hidden", Boolean(readOnly) && !isTrainerNote);
+		saveButton.textContent = isTrainerNote ? "Save response" : "Save note";
+	}
 	const readOnlyNotice = $("note-editor-readonly");
 	if (readOnlyNotice) readOnlyNotice.classList.toggle("hidden", !readOnly);
 }
@@ -1321,12 +1367,18 @@ async function handleNoteEditorSwipeDismiss() {
 	const text = $("note-editor-content").value.trim();
 	const caloriesValue = $("note-editor-calories").value.trim();
 	const nutritionValue = serializeNoteEditorNutritionFields();
+	const trainerResponse =
+		$("note-editor-trainer-response")?.value.trim() || "";
 	const hasChanges =
 		text !== editingNoteInitialText ||
 		caloriesValue !== editingNoteInitialCalories ||
-		nutritionValue !== editingNoteInitialNutrition;
+		nutritionValue !== editingNoteInitialNutrition ||
+		trainerResponse !== editingNoteInitialTrainerResponse;
 	const hasContent =
-		Boolean(text) || Boolean(caloriesValue) || hasNoteEditorNutritionContent();
+		Boolean(text) ||
+		Boolean(caloriesValue) ||
+		hasNoteEditorNutritionContent() ||
+		Boolean(trainerResponse);
 	if (hasChanges && hasContent) {
 		const saved = await persistNoteEditor({ closeOnSave: false });
 		if (!saved) return;
@@ -1425,6 +1477,8 @@ function closeNoteEditor() {
 		modal.classList.add("hidden");
 	}, 250);
 	$("note-editor-content").value = "";
+	const trainerResponseInput = $("note-editor-trainer-response");
+	if (trainerResponseInput) trainerResponseInput.value = "";
 	$("note-editor-calories").value = "";
 	setNoteEditorNutritionFields(null);
 	editingNoteId = null;
@@ -1435,12 +1489,42 @@ function closeNoteEditor() {
 	editingNoteInitialText = "";
 	editingNoteInitialCalories = "";
 	editingNoteInitialNutrition = "";
+	editingNoteInitialTrainerResponse = "";
 	editingNoteMetadata = null;
 	editingNoteReadOnly = false;
 	applyNoteEditorReadOnlyState(false);
 }
 
 async function persistNoteEditor({ closeOnSave = true } = {}) {
+	const isTrainerNote = editingNoteMetadata?.source === AI_TRAINER_NOTE_SOURCE;
+	const trainerResponse =
+		$("note-editor-trainer-response")?.value.trim() || "";
+	if (editingNoteReadOnly && isTrainerNote) {
+		if (!editingNoteId) return false;
+		try {
+			await updateNote(editingNoteId, {
+				text: $("note-editor-content").value.trim(),
+				calorieEntry: buildCalorieEntryFromEditor(),
+				trainerResponse,
+				dateKey: editingNoteDateKey,
+				fastContext: editingNoteContext,
+				createdAt: editingNoteCreatedAt,
+				metadata: editingNoteMetadata,
+			});
+		} catch (err) {
+			if (err?.message === "missing-key") {
+				handleNotesDecryptError(err);
+				return false;
+			}
+		}
+		editingNoteInitialTrainerResponse = trainerResponse;
+		renderNotes();
+		if (closeOnSave) closeNoteEditor();
+		showToast(
+			trainerResponse ? "Saved trainer response" : "Cleared trainer response",
+		);
+		return true;
+	}
 	if (editingNoteReadOnly) {
 		showToast("AI trainer notes are read-only");
 		return false;
@@ -1460,6 +1544,7 @@ async function persistNoteEditor({ closeOnSave = true } = {}) {
 				fastContext: editingNoteContext,
 				createdAt: editingNoteCreatedAt,
 				metadata: editingNoteMetadata,
+				trainerResponse,
 			});
 		} else {
 			await createNote({
@@ -1468,6 +1553,7 @@ async function persistNoteEditor({ closeOnSave = true } = {}) {
 				dateKey: editingNoteDateKey,
 				fastContext: editingNoteContext,
 				metadata: editingNoteMetadata,
+				trainerResponse,
 			});
 		}
 	} catch (err) {
@@ -1883,6 +1969,10 @@ async function encryptNotePayload(notePayload) {
 		serializedPayload = JSON.stringify({
 			text: typeof notePayload.text === "string" ? notePayload.text : "",
 			calorieEntry: notePayload.calorieEntry ?? null,
+			trainerResponse:
+				typeof notePayload.trainerResponse === "string"
+					? notePayload.trainerResponse
+					: "",
 		});
 	}
 	const encodedText = new TextEncoder().encode(serializedPayload);
@@ -1914,7 +2004,9 @@ async function decryptNotePayload(payload) {
 		if (
 			parsed &&
 			typeof parsed === "object" &&
-			("text" in parsed || "calorieEntry" in parsed)
+			("text" in parsed ||
+				"calorieEntry" in parsed ||
+				"trainerResponse" in parsed)
 		) {
 			return parsed;
 		}
@@ -4441,6 +4533,7 @@ function buildTrainerContinuityContext() {
 		source: note.metadata?.source || "user",
 		isAITrainerNote: isAITrainerNote(note),
 		text: getDisplayNoteText(note) || null,
+		userResponse: note.trainerResponse || null,
 	}));
 	const previousAITrainerNotes = trainerNotes.filter(
 		(note) => note.isAITrainerNote,
@@ -4551,6 +4644,8 @@ async function recommendGoalPlanWithAI() {
 	const recommendationPrompt = [
 		"You are a personal trainer and nutrition coach.",
 		"Recommend a realistic calorie and daily nutrient plan tailored to the user profile.",
+		"Always include dailyTarget as the user's target goal calories unless there is not enough profile information to estimate it responsibly.",
+		"When goal is lose, maintain, or gain, make dailyTarget reflect that goal plus the user's instructions, journal notes, fasting schedule, and food preferences.",
 		"Respect the user instructions and account for dietary needs, injuries, limitations, fasting schedule, and completed fasting history.",
 		trainerContext.notes || trainerContext.completedFasts
 			? "The user has shared journal notes — use them to refine your recommendations."
@@ -5133,8 +5228,12 @@ function initButtons() {
 			Number.isFinite(recommendation.dailyTarget) &&
 			recommendation.dailyTarget > 0
 		) {
-			setCalorieTargetSettings(settings, recommendation.dailyTarget);
-			updated = true;
+			const currentTarget = getCalorieTarget();
+			const nextTarget = Math.round(recommendation.dailyTarget);
+			if (!currentTarget || Math.round(currentTarget) !== nextTarget) {
+				setCalorieTargetSettings(settings, nextTarget);
+				updated = true;
+			}
 		}
 		if (recommendation.goal) {
 			settings.goal = recommendation.goal;
@@ -6752,6 +6851,20 @@ function buildNoteCard(note) {
 			text.textContent = displayText || "Untitled note";
 			card.appendChild(text);
 		}
+	}
+
+	if (isAITrainer && note.trainerResponse) {
+		const response = document.createElement("div");
+		response.className = "note-trainer-response";
+		const label = document.createElement("div");
+		label.className = "note-trainer-response-label";
+		label.textContent = "Your response";
+		const text = document.createElement("div");
+		text.className = "note-trainer-response-text";
+		text.textContent = note.trainerResponse;
+		response.appendChild(label);
+		response.appendChild(text);
+		card.appendChild(response);
 	}
 
 	const meta = document.createElement("div");
