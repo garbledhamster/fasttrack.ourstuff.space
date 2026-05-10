@@ -4263,6 +4263,8 @@ const AI_TRAINER_NOTE_TITLE = "AI Trainer Note";
 const AI_TRAINER_NOTE_HEADING = "{ðŸ¤– TRAINER}";
 const AI_TRAINER_NOTE_SOURCE = "ai_trainer";
 const AI_TRAINER_NOTE_MARKER = "ai:trainer-note";
+const AI_TRAINER_QUICK_NOTE_TEXT_TEMPLATE =
+	"You asked: {question} — Trainer replied: {response}";
 const TRAINER_QUICK_QUESTION_MAX_CHARS = 500;
 const TRAINER_QUICK_RESPONSE_MAX_CHARS = 700;
 const AI_TRAINER_NOTE_TAGS = Object.freeze([
@@ -5192,7 +5194,10 @@ async function generateTrainerQuickQuestionResponse({
 		showToast("Ask a quick question first");
 		return null;
 	}
-	const trainerContext = buildTrainerContinuityContext(rangeOverride, provider);
+	const trainerContext = buildTrainerContinuityContext(
+		rangeOverride,
+		providerOverride,
+	);
 	const userPayload = JSON.stringify(
 		{
 			quickQuestion: normalizedQuestion,
@@ -5269,7 +5274,10 @@ async function addAITrainerQuickQuestionNote({
 		signal,
 	});
 	if (!trainerResponse) return false;
-	const noteText = `You asked: ${normalizedQuestion} — Trainer replied: ${trainerResponse}`;
+	const noteText = AI_TRAINER_QUICK_NOTE_TEXT_TEMPLATE.replace(
+		"{question}",
+		normalizedQuestion,
+	).replace("{response}", trainerResponse);
 	const noteId = await createNote({
 		text: noteText,
 		dateKey: formatDateKey(new Date()),
