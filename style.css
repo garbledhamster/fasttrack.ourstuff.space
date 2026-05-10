@@ -610,6 +610,10 @@ body.bg-slate-950 {
 	gap: 8px;
 }
 
+.history-chart-row--inactive {
+	opacity: 0.85;
+}
+
 .history-chart-label {
 	font-size: 11px;
 	color: var(--text-muted-color);

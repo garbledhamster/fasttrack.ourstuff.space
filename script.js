@@ -5856,8 +5856,8 @@ function appendHistoryAnalyticsCard(container, card) {
 function appendHistoryComparisonRow(container, entry, trendMax) {
 	const row = document.createElement("div");
 	row.className = "history-chart-row";
-	if (entry.key === selectedDayKey) row.style.opacity = "1";
-	else row.style.opacity = "0.85";
+	if (entry.key !== selectedDayKey)
+		row.classList.add("history-chart-row--inactive");
 
 	const dayLabel = document.createElement("div");
 	dayLabel.className = "history-chart-label";
@@ -5982,7 +5982,7 @@ function renderDayDetails() {
 		const time = document.createElement("div");
 		time.className = "history-fast-subtitle";
 		const timeLabel = spansMultipleDays
-			? `${formatDateTimeLong(new Date(displayStart))} → ${formatDateTimeLong(new Date(displayEnd))}`
+			? `${formatDateTimeLong(new Date(actualStartTs))} → ${formatDateTimeLong(new Date(displayEnd))}`
 			: `${formatTimeShort(new Date(displayStart))} → ${formatTimeShort(new Date(displayEnd))}`;
 		time.textContent = e.isActive ? `${timeLabel} (in progress)` : timeLabel;
 
