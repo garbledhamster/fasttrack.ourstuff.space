@@ -430,7 +430,7 @@
             <button id="ai-trainer-note-btn" type="button" class="w-full py-4 md:py-3 rounded-full button-accent border font-semibold text-base md:text-sm">AI Trainer Note</button>
             <div>
               <label class="block text-sm md:text-xs text-muted mb-1" for="ai-trainer-notes-range">Notes to send to trainer</label>
-              <input id="ai-trainer-notes-range" type="range" min="0" max="18" step="1" class="w-full accent-brand-500">
+              <input id="ai-trainer-notes-range" type="range" min="0" max="18" step="1" class="w-full trainer-range">
               <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
                 <span>No notes</span>
                 <span id="ai-trainer-notes-range-label" class="font-medium text-default">Global default</span>
@@ -567,7 +567,7 @@
           <div id="openai-trainer-settings-panel" class="space-y-3">
             <div>
               <label class="block text-sm md:text-xs text-muted mb-1" for="openai-notes-range">Notes to send to trainer</label>
-              <input id="openai-notes-range" type="range" min="0" max="18" step="1" class="w-full accent-brand-500">
+              <input id="openai-notes-range" type="range" min="0" max="18" step="1" class="w-full trainer-range">
               <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
                 <span>No notes</span>
                 <span id="openai-notes-range-label" class="font-medium text-default">No notes</span>
@@ -578,7 +578,7 @@
           <div id="byo-trainer-settings-panel" class="space-y-3 hidden">
             <div>
               <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-notes-range">Notes to send to trainer</label>
-              <input id="byo-llm-notes-range" type="range" min="0" max="18" step="1" class="w-full accent-brand-500">
+              <input id="byo-llm-notes-range" type="range" min="0" max="18" step="1" class="w-full trainer-range">
               <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
                 <span>No notes</span>
                 <span id="byo-llm-notes-range-label" class="font-medium text-default">No notes</span>
@@ -752,21 +752,12 @@
     <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
       <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
         <div class="flex items-center justify-between gap-2">
-          <h2 class="text-base md:text-sm font-medium text-default">Goal details</h2>
+          <h2 class="text-base md:text-sm font-medium text-default">Personal details</h2>
           <button id="calorie-goal-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
         </div>
       </div>
       <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
       <div class="grid gap-3 md:grid-cols-2">
-        <div>
-          <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-goal-input">Goal</label>
-          <select id="calorie-goal-input" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
-            <option value="">Select goal</option>
-            <option value="lose">Lose weight</option>
-            <option value="maintain">Maintain</option>
-            <option value="gain">Gain muscle</option>
-          </select>
-        </div>
         <div>
           <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-gender-input">Gender</label>
           <select id="calorie-gender-input" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
@@ -814,27 +805,23 @@
           <input id="calorie-weight-input" type="number" min="0" step="0.1" inputmode="decimal" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 72.5 kg">
           <p id="calorie-weight-subtext" class="text-xs md:text-[11px] text-subtle mt-1">Current weight in kilograms.</p>
         </div>
-        <div class="rounded-xl border border-default surface-soft p-3 md:col-span-2">
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <h3 class="text-xs uppercase tracking-[0.2em] text-subtle">Daily nutrient goals</h3>
-            <button id="calorie-goal-recommend-btn" type="button" class="text-xs md:text-[11px] px-3 py-2 rounded-full button-outline border">Recommend plan</button>
-          </div>
-          <div class="nutrition-input-grid nutrition-input-grid-labeled">
-            <label class="nutrition-input-field"><span class="nutrition-input-label">Protein (g)</span><input id="calorie-goal-protein" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Protein goal grams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Protein goal (g)"></label>
-            <label class="nutrition-input-field"><span class="nutrition-input-label">Carbs (g)</span><input id="calorie-goal-carbs" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Carbs goal grams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Carbs goal (g)"></label>
-            <label class="nutrition-input-field"><span class="nutrition-input-label">Fat (g)</span><input id="calorie-goal-fat" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Fat goal grams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Fat goal (g)"></label>
-            <label class="nutrition-input-field"><span class="nutrition-input-label">Sodium (mg)</span><input id="calorie-goal-sodium" type="number" min="0" step="1" inputmode="numeric" aria-label="Sodium goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Sodium goal (mg)"></label>
-            <label class="nutrition-input-field"><span class="nutrition-input-label">Potassium (mg)</span><input id="calorie-goal-potassium" type="number" min="0" step="1" inputmode="numeric" aria-label="Potassium goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Potassium goal (mg)"></label>
-             <label class="nutrition-input-field"><span class="nutrition-input-label">Calcium (mg)</span><input id="calorie-goal-calcium" type="number" min="0" step="1" inputmode="numeric" aria-label="Calcium goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Calcium goal (mg)"></label>
-             <label class="nutrition-input-field"><span class="nutrition-input-label">Iron (mg)</span><input id="calorie-goal-iron" type="number" min="0" step="1" inputmode="numeric" aria-label="Iron goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Iron goal (mg)"></label>
-             <label class="nutrition-input-field"><span class="nutrition-input-label">Magnesium (mg)</span><input id="calorie-goal-magnesium" type="number" min="0" step="1" inputmode="numeric" aria-label="Magnesium goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Magnesium goal (mg)"></label>
-             <label class="nutrition-input-field"><span class="nutrition-input-label">Zinc (mg)</span><input id="calorie-goal-zinc" type="number" min="0" step="1" inputmode="numeric" aria-label="Zinc goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Zinc goal (mg)"></label>
-             <label class="nutrition-input-field"><span class="nutrition-input-label">Vitamin A (mcg)</span><input id="calorie-goal-vitamin-a" type="number" min="0" step="1" inputmode="numeric" aria-label="Vitamin A goal micrograms" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin A goal (mcg)"></label>
-             <label class="nutrition-input-field"><span class="nutrition-input-label">Vitamin C (mg)</span><input id="calorie-goal-vitamin-c" type="number" min="0" step="1" inputmode="numeric" aria-label="Vitamin C goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin C goal (mg)"></label>
-             <label class="nutrition-input-field"><span class="nutrition-input-label">Vitamin D (mcg)</span><input id="calorie-goal-vitamin-d" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Vitamin D goal micrograms" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin D goal (mcg)"></label>
-             <label class="nutrition-input-field"><span class="nutrition-input-label">Vitamin B6 (mg)</span><input id="calorie-goal-vitamin-b6" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Vitamin B6 goal milligrams" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin B6 goal (mg)"></label>
-             <label class="nutrition-input-field"><span class="nutrition-input-label">Vitamin B12 (mcg)</span><input id="calorie-goal-vitamin-b12" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Vitamin B12 goal micrograms" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin B12 goal (mcg)"></label>
-          </div>
+        <div id="openai-trainer-instructions-panel" class="md:col-span-2">
+          <label class="block text-sm md:text-xs text-muted mb-1" for="openai-trainer-instructions">AI Trainer Instructions</label>
+          <textarea id="openai-trainer-instructions" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Share nutrition preferences, dietary needs, injuries, limitations, allergies, and coaching style."></textarea>
+          <p class="text-xs md:text-[11px] text-subtle mt-1">
+            These instructions are sent to OpenAI only when you use AI features.
+            FastTrack stores only what you enter, encrypted and secured in your account,
+            and decrypts it only with your password.
+          </p>
+        </div>
+        <div id="byo-trainer-instructions-panel" class="md:col-span-2 hidden">
+          <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-trainer-instructions">AI Trainer Instructions</label>
+          <textarea id="byo-llm-trainer-instructions" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Share nutrition preferences, dietary needs, injuries, limitations, allergies, and coaching style."></textarea>
+          <p class="text-xs md:text-[11px] text-subtle mt-1">
+            These instructions are sent to your BYO endpoint only when you use AI features.
+            FastTrack stores only what you enter, encrypted and secured in your account,
+            and decrypts it only with your password.
+          </p>
         </div>
       </div>
       </div>
@@ -944,10 +931,6 @@
       <div id="note-editor-trainer-response-wrap" class="hidden mt-3">
         <label for="note-editor-trainer-response" class="block text-sm md:text-xs text-muted mb-1">Response note</label>
         <textarea id="note-editor-trainer-response" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Reply to the trainer or leave feedback on this response."></textarea>
-      </div>
-      <div class="mb-3 mt-3">
-        <label for="note-editor-food-details" class="block text-sm md:text-xs text-muted mb-1">Food details</label>
-        <textarea id="note-editor-food-details" rows="3" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 2 eggs, toast, banana"></textarea>
       </div>
       <label for="note-editor-calories" class="block text-sm md:text-xs text-muted mb-1">Calories</label>
       <div class="flex gap-2">
