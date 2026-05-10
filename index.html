@@ -183,17 +183,26 @@
 
         <div class="flex flex-col items-center gap-3 mb-3">
           <div class="text-xs uppercase tracking-[0.2em] text-subtle">TRACK YOUR PROGRESS</div>
-          <button id="history-progress-drawer-btn" type="button" class="fast-type-chip text-[11px] md:text-[10px]" aria-controls="history-progress-drawer" aria-expanded="false" aria-label="Track your progress" title="Track your progress">
-            <svg class="h-6 w-6 text-current" viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="currentColor" d="M3 13h3v8H3v-8Zm7-4h3v12h-3V9Zm7-6h3v18h-3V3Z"/>
-            </svg>
-            <span class="sr-only">Track your progress</span>
-          </button>
-        </div>
-
-        <div class="mt-2">
-          <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Recent fasts</h2>
-          <div id="recent-fast-list" class="space-y-2 text-sm md:text-xs"></div>
+          <div class="flex items-center justify-center gap-3">
+            <button id="history-progress-drawer-btn" type="button" class="fast-type-chip text-[11px] md:text-[10px]" aria-controls="history-progress-drawer" aria-expanded="false" aria-label="Daily progress" title="Daily progress">
+              <svg class="h-6 w-6 text-current" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M3 13h3v8H3v-8Zm7-4h3v12h-3V9Zm7-6h3v18h-3V3Z"/>
+              </svg>
+              <span class="sr-only">Daily progress</span>
+            </button>
+            <button id="history-notes-drawer-btn" type="button" class="fast-type-chip text-[11px] md:text-[10px]" aria-controls="history-notes-drawer" aria-expanded="false" aria-label="Today's notes" title="Today's notes">
+              <svg class="h-6 w-6 text-current" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M16 14H8a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2Zm0-4h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2Zm4-6h-3V3a1 1 0 0 0-2 0v1h-2V3a1 1 0 0 0-2 0v1H9V3a1 1 0 0 0-2 0v1H4a1 1 0 0 0-1 1v14a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V5a1 1 0 0 0-1-1Zm-1 15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6h2v1a1 1 0 0 0 2 0V6h2v1a1 1 0 0 0 2 0V6h2v1a1 1 0 0 0 2 0V6h2Z"/>
+              </svg>
+              <span class="sr-only">Today's notes</span>
+            </button>
+            <button id="recent-fasts-drawer-btn" type="button" class="fast-type-chip text-[11px] md:text-[10px]" aria-controls="recent-fasts-drawer" aria-expanded="false" aria-label="Recent fasts" title="Recent fasts">
+              <svg class="h-6 w-6 text-current" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M12 8v4l2.5 2.5l-1.42 1.42L10 12.83V8h2Zm0-6a10 10 0 1 1 0 20a10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16Z"/>
+              </svg>
+              <span class="sr-only">Recent fasts</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -268,10 +277,10 @@
         <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
           <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
             <div class="flex items-center justify-between gap-2">
-              <h2 class="text-base md:text-sm font-medium text-default">Track your progress</h2>
+              <h2 class="text-base md:text-sm font-medium text-default">Daily progress</h2>
               <button id="history-progress-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
             </div>
-            <p class="text-sm md:text-xs text-muted">Review selected day details and note summaries.</p>
+            <p class="text-sm md:text-xs text-muted">Review selected day fasting details.</p>
           </div>
           <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4 space-y-4">
             <div>
@@ -279,11 +288,40 @@
               <div id="day-summary" class="text-sm md:text-xs text-muted mb-2 md:mb-1">No fasts logged</div>
               <div id="day-fast-list" class="space-y-2 text-sm md:text-xs"></div>
             </div>
-            <div>
-              <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Notes</h2>
-              <div id="day-notes-summary" class="text-sm md:text-xs text-muted mb-2 md:mb-1">No notes yet.</div>
-              <div id="day-notes-list" class="space-y-2 text-sm md:text-xs"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="history-notes-drawer" class="notes-drawer hidden">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+          <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
+            <div class="flex items-center justify-between gap-2">
+              <h2 class="text-base md:text-sm font-medium text-default">Today's notes</h2>
+              <button id="history-notes-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
             </div>
+            <p class="text-sm md:text-xs text-muted">Your notes and nutrition context for today.</p>
+          </div>
+          <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4 space-y-4">
+            <div>
+              <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Today</h2>
+              <div id="today-notes-summary" class="text-sm md:text-xs text-muted mb-2 md:mb-1">No notes yet.</div>
+              <div id="today-notes-list" class="space-y-2 text-sm md:text-xs"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="recent-fasts-drawer" class="notes-drawer hidden">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+          <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
+            <div class="flex items-center justify-between gap-2">
+              <h2 class="text-base md:text-sm font-medium text-default">Recent fasts</h2>
+              <button id="recent-fasts-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
+            </div>
+            <p class="text-sm md:text-xs text-muted">Your latest completed fast sessions.</p>
+          </div>
+          <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
+            <div id="recent-fast-list" class="space-y-2 text-sm md:text-xs"></div>
           </div>
         </div>
       </section>
@@ -437,27 +475,75 @@
 
         <div class="mt-4 space-y-3">
           <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">AI Features</h2>
-          <div>
-            <label class="block text-sm md:text-xs text-muted mb-1" for="openai-api-key">OpenAI API key</label>
-            <input id="openai-api-key" type="password" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="sk-...">
-            <p class="text-xs md:text-[11px] text-subtle mt-1">Your API key is encrypted and stored securely. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-brand-500 hover:text-brand-600 underline">Get API Key</a></p>
+          <fieldset class="space-y-2">
+            <legend class="text-sm md:text-xs text-muted">Model provider</legend>
+            <label class="flex items-center gap-2 text-sm md:text-xs text-default">
+              <input id="llm-provider-openai" type="radio" name="llm-provider" value="openai" class="accent-brand-500">
+              <span>OpenAI</span>
+            </label>
+            <label class="flex items-center gap-2 text-sm md:text-xs text-default">
+              <input id="llm-provider-byo" type="radio" name="llm-provider" value="byo" class="accent-brand-500">
+              <span>Bring your own LLM API</span>
+            </label>
+          </fieldset>
+          <div id="openai-settings-panel" class="space-y-3">
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="openai-api-key">OpenAI API key</label>
+              <input id="openai-api-key" type="password" autocomplete="current-password" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="sk-...">
+              <p class="text-xs md:text-[11px] text-subtle mt-1">Your API key is encrypted and stored securely. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-brand-500 hover:text-brand-600 underline">Get API Key</a></p>
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="openai-model-select">OpenAI model</label>
+              <select id="openai-model-select" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
+                <option value="gpt-5.5">gpt-5.5</option>
+                <option value="gpt-5.4">gpt-5.4</option>
+                <option value="gpt-5.4-mini">gpt-5.4-mini</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="openai-reasoning-effort">Reasoning mode</label>
+              <select id="openai-reasoning-effort" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
+                <option value="none">Off</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label class="block text-sm md:text-xs text-muted mb-1" for="openai-model-select">OpenAI model</label>
-            <select id="openai-model-select" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
-              <option value="gpt-5.5">gpt-5.5</option>
-              <option value="gpt-5.4">gpt-5.4</option>
-              <option value="gpt-5.4-mini">gpt-5.4-mini</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm md:text-xs text-muted mb-1" for="openai-reasoning-effort">Reasoning mode</label>
-            <select id="openai-reasoning-effort" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
-              <option value="none">Off</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
+          <div id="byo-llm-settings-panel" class="space-y-3 hidden">
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-api-url">API endpoint</label>
+              <input id="byo-llm-api-url" type="url" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="https://api.example.com/v1/chat/completions">
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-api-key">API key (optional)</label>
+              <input id="byo-llm-api-key" type="password" autocomplete="current-password" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Bearer token">
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-model">Model name</label>
+              <input id="byo-llm-model" type="text" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="deepseek-r1 or your model id">
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-reasoning-effort">Reasoning mode</label>
+              <select id="byo-llm-reasoning-effort" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500">
+                <option value="none">Off</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-max-tokens">Max completion tokens</label>
+              <input id="byo-llm-max-tokens" type="number" min="1" step="1" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="4096">
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-temperature">Temperature</label>
+              <input id="byo-llm-temperature" type="number" min="0" max="2" step="0.1" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="1.0">
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-headers">Custom headers (JSON)</label>
+              <textarea id="byo-llm-headers" rows="3" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono" placeholder="{&quot;X-API-Version&quot;:&quot;2025-01-01&quot;}"></textarea>
+            </div>
           </div>
           <div>
             <label class="block text-sm md:text-xs text-muted mb-1" for="openai-trainer-instructions">AI Trainer Instructions</label>
@@ -589,33 +675,38 @@
     </nav>
   </div>
 
-  <div id="calorie-target-drawer" class="fixed inset-0 z-30 hidden">
-    <div class="absolute inset-0 bg-black/50"></div>
-    <div class="modal-sheet absolute bottom-0 rounded-t-3xl bg-app border-t border-default p-4">
-      <div class="flex items-center justify-between mb-3">
-        <div class="text-base md:text-sm font-medium text-default">Daily target</div>
-        <button id="calorie-target-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
-      </div>
-      <div class="space-y-3">
-        <div>
-          <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-daily-target-input">Daily target</label>
-          <input id="calorie-daily-target-input" type="number" min="0" inputmode="numeric" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 2000">
+  <section id="calorie-target-drawer" class="notes-drawer hidden">
+    <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+      <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-base md:text-sm font-medium text-default">Daily target</h2>
+          <button id="calorie-target-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
         </div>
-        <div>
-          <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-consumed-input">Consumed today</label>
-          <input id="calorie-consumed-input" type="number" min="0" inputmode="numeric" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 1200">
+      </div>
+      <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-daily-target-input">Daily target</label>
+            <input id="calorie-daily-target-input" type="number" min="0" inputmode="numeric" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 2000">
+          </div>
+          <div>
+            <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-consumed-input">Consumed today</label>
+            <input id="calorie-consumed-input" type="number" min="0" inputmode="numeric" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 1200">
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div id="calorie-goal-drawer" class="fixed inset-0 z-30 hidden">
-    <div class="absolute inset-0 bg-black/50"></div>
-    <div class="modal-sheet absolute bottom-0 rounded-t-3xl bg-app border-t border-default p-4 max-h-[70vh] overflow-y-auto">
-      <div class="flex items-center justify-between mb-3">
-        <div class="text-base md:text-sm font-medium text-default">Goal details</div>
-        <button id="calorie-goal-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
+  <section id="calorie-goal-drawer" class="notes-drawer hidden">
+    <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+      <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-base md:text-sm font-medium text-default">Goal details</h2>
+          <button id="calorie-goal-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
+        </div>
       </div>
+      <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
       <div class="grid gap-3 md:grid-cols-2">
         <div>
           <label class="block text-sm md:text-xs text-muted mb-1" for="calorie-goal-input">Goal</label>
@@ -695,9 +786,9 @@
              <label class="nutrition-input-field"><span class="nutrition-input-label">Vitamin B12 (mcg)</span><input id="calorie-goal-vitamin-b12" type="number" min="0" step="0.1" inputmode="decimal" aria-label="Vitamin B12 goal micrograms" class="surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Vitamin B12 goal (mcg)"></label>
           </div>
         </div>
-      </div>
+      </div></div>
     </div>
-  </div>
+  </section>
 
   <div id="fast-type-modal" class="fixed inset-0 z-30 hidden">
     <div class="absolute inset-0 bg-black/50"></div>
