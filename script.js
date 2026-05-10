@@ -4404,6 +4404,7 @@ const AI_TRAINER_QUICK_NOTE_TEXT_TEMPLATE =
 	"You asked: {question} — Trainer replied: {response}";
 const TRAINER_QUICK_QUESTION_MAX_CHARS = 500;
 const TRAINER_QUICK_RESPONSE_MAX_CHARS = 700;
+// Stored as "prefix + JSON" so future parser versions can migrate safely.
 const TRAINER_NOTE_CONVERSATION_STORAGE_PREFIX = "trainer-chat:v1:";
 const TRAINER_NOTE_CONVERSATION_MAX_CHARS = 500;
 const AI_TRAINER_NOTE_CONVERSATION_PROMPT = [
@@ -4552,6 +4553,10 @@ function normalizeSingleParagraph(value, maxChars) {
 	if (!collapsed) return "";
 	if (collapsed.length <= maxLength) return collapsed;
 	return collapsed.slice(0, maxLength).trimEnd();
+}
+
+function pluralizeWord(count, singular, plural = `${singular}s`) {
+	return Number(count) === 1 ? singular : plural;
 }
 
 function normalizeTrainerConversationMessageRole(role) {
@@ -7898,7 +7903,7 @@ function buildNoteCard(note) {
 		response.className = "note-trainer-response";
 		const label = document.createElement("div");
 		label.className = "note-trainer-response-label";
-		label.textContent = `Conversation · ${trainerConversation.length} message${trainerConversation.length === 1 ? "" : "s"}`;
+		label.textContent = `Conversation · ${trainerConversation.length} ${pluralizeWord(trainerConversation.length, "message")}`;
 		const text = document.createElement("div");
 		text.className = "note-trainer-response-text";
 		text.textContent = `${latestMessage.role === "trainer" ? "Trainer" : "You"}: ${latestMessage.content}`;
