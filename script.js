@@ -5266,7 +5266,7 @@ async function addAITrainerQuickQuestionNote({
 		signal,
 	});
 	if (!trainerResponse) return false;
-	const noteText = `You asked: ${normalizedQuestion} Trainer replied: ${trainerResponse}`;
+	const noteText = `You asked: ${normalizedQuestion} — Trainer replied: ${trainerResponse}`;
 	const noteId = await createNote({
 		text: noteText,
 		dateKey: formatDateKey(new Date()),
