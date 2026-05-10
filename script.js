@@ -4349,6 +4349,88 @@ async function estimateCaloriesWithAI(noteText) {
 	}
 }
 
+async function generateTrainerNoteWithAI() {
+	const trainerInstructions = String(
+		state.settings.openaiTrainerInstructions || "",
+	).trim();
+	const profile = buildGoalRecommendationProfile();
+	const trainerNotes = getNotesForTrainer().map((n) => ({
+		date: n.createdAt ? new Date(n.createdAt).toISOString() : null,
+		text: n.text || null,
+	}));
+	const todayKey = formatDateKey(new Date());
+	const todayCalories = getNoteCaloriesForDateKey(todayKey);
+	const todayNutrition = formatNutritionInlineSummary(todayKey);
+	const trainerPrompt = [
+		"You are a practical, supportive personal trainer and nutrition coach.",
+		"Write a concise trainer summary note with constructive personal feedback.",
+		"Focus on actionable next steps for nutrition, fasting routine, exercise, and recovery.",
+		"Respect user instructions, dietary needs, injuries, and limitations.",
+		"Keep output light and actionable: max 4 short bullet points, no markdown headings, no fluff.",
+		"If information is missing, give safe, realistic suggestions and mention uncertainty briefly.",
+	].join(" ");
+	const userPayload = JSON.stringify(
+		{
+			profile,
+			instructions: trainerInstructions || null,
+			activeFast: buildFastContext(),
+			today: {
+				dateKey: todayKey,
+				calories: Number.isFinite(todayCalories) ? todayCalories : null,
+				nutritionSummary: todayNutrition || null,
+			},
+			notes: trainerNotes.length ? trainerNotes : null,
+		},
+		null,
+		2,
+	);
+	try {
+		const data = await callAIChatCompletions({
+			systemPrompt: trainerPrompt,
+			userPrompt: userPayload,
+			purpose: "AI trainer note",
+			withReasoningFallback: true,
+		});
+		if (!data) return null;
+		const messageContent = data.choices?.[0]?.message?.content;
+		let aiText = "";
+		if (typeof messageContent === "string") {
+			aiText = messageContent.trim();
+		} else if (Array.isArray(messageContent)) {
+			aiText = messageContent
+				.map((part) => (typeof part?.text === "string" ? part.text : ""))
+				.join("\n")
+				.trim();
+		}
+		if (!aiText) {
+			showToast("No response from AI");
+			return null;
+		}
+		return aiText;
+	} catch (error) {
+		console.error("Error calling AI API:", error);
+		showToast("Failed to generate trainer note. Check your internet connection.");
+		return null;
+	}
+}
+
+async function addAITrainerNote() {
+	const trainerText = await generateTrainerNoteWithAI();
+	if (!trainerText) return false;
+	const noteId = await createNote({
+		text: `AI Trainer Note\n${trainerText}`,
+		dateKey: formatDateKey(new Date()),
+		fastContext: buildFastContext(),
+	});
+	if (!noteId) {
+		showToast("Failed to save AI trainer note");
+		return false;
+	}
+	renderNotes();
+	showToast("Added AI trainer note");
+	return true;
+}
+
 function initButtons() {
 	$("start-fast-btn").addEventListener("click", confirmStartFast);
 	$("stop-fast-btn").addEventListener("click", confirmStopFast);
@@ -4681,6 +4763,15 @@ function initButtons() {
 	$("edit-history-delete").addEventListener("click", deleteEditedHistoryEntry);
 
 	$("new-note-btn").addEventListener("click", () => openNoteEditor());
+	$("ai-trainer-note-btn").addEventListener("click", async () => {
+		const button = $("ai-trainer-note-btn");
+		const originalText = button.textContent;
+		button.disabled = true;
+		button.textContent = "Generating...";
+		await addAITrainerNote();
+		button.disabled = false;
+		button.textContent = originalText;
+	});
 	$("calorie-log-meal-btn").addEventListener("click", () => openNoteEditor());
 	const noteEditorBackdrop = document.querySelector(
 		"#note-editor-modal .note-editor-backdrop",
