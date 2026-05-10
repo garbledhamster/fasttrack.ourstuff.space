@@ -275,6 +275,7 @@ const DEFAULT_LLM_PROVIDER = "openai";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
 const OPENAI_MAX_TOKENS_WITH_REASONING = 4096;
 const OPENAI_MAX_TOKENS_STANDARD = 320;
+const Z_INDEX_OVERLAY_PORTAL = "11000";
 const MAX_IMPERIAL_HEIGHT_PART = 11;
 const VALID_CALORIE_GOALS = new Set(["lose", "maintain", "gain"]);
 const defaultState = {
@@ -2387,7 +2388,7 @@ function ensureNotesOverlay() {
 	notesPortal.id = "notes-portal";
 	notesPortal.style.position = "fixed";
 	notesPortal.style.inset = "0";
-	notesPortal.style.zIndex = "11000";
+	notesPortal.style.zIndex = Z_INDEX_OVERLAY_PORTAL;
 	notesPortal.style.display = "none";
 	notesPortal.style.pointerEvents = "auto";
 	notesPortal.style.touchAction = "pan-y";
@@ -2558,7 +2559,7 @@ function ensureSecondaryDrawerOverlay(drawerType) {
 	const portal = document.createElement("div");
 	portal.style.position = "fixed";
 	portal.style.inset = "0";
-	portal.style.zIndex = "11000";
+	portal.style.zIndex = Z_INDEX_OVERLAY_PORTAL;
 	portal.style.display = "none";
 	portal.style.pointerEvents = "auto";
 	portal.style.touchAction = "pan-y";
@@ -4182,6 +4183,8 @@ async function callAIChatCompletions({
 			{ role: "system", content: systemPrompt },
 			{ role: "user", content: userPrompt },
 		],
+		// OpenAI reasoning responses need a higher completion-token floor,
+		// while BYO providers keep their configured token limit.
 		max_completion_tokens: usingReasoning
 			? config.provider === "openai"
 				? Math.max(config.maxCompletionTokens, OPENAI_MAX_TOKENS_WITH_REASONING)
