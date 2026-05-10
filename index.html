@@ -162,7 +162,7 @@
         </div>
 
         <div class="mt-1">
-          <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-2 text-center">Fast types</h2>
+          <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-2 text-center">BE MINDFUL OF YOUR CHOICES</h2>
           <div id="fast-type-chips" class="flex flex-wrap gap-2 justify-center w-full"></div>
           <div class="text-xs md:text-[11px] text-subtle mt-2 text-center">Select a type to preview, then tap “Use this fast type” to apply.</div>
         </div>
@@ -181,16 +181,14 @@
           <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-sm md:text-xs"></div>
         </div>
 
-        <div class="mb-3">
-          <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Selected day</h2>
-          <div id="day-summary" class="text-sm md:text-xs text-muted mb-2 md:mb-1">No fasts logged</div>
-          <div id="day-fast-list" class="space-y-2 text-sm md:text-xs"></div>
-        </div>
-
-        <div class="mb-3">
-          <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Notes</h2>
-          <div id="day-notes-summary" class="text-sm md:text-xs text-muted mb-2 md:mb-1">No notes yet.</div>
-          <div id="day-notes-list" class="space-y-2 text-sm md:text-xs"></div>
+        <div class="flex flex-col items-center gap-3 mb-3">
+          <div class="text-xs uppercase tracking-[0.2em] text-subtle">TRACK YOUR PROGRESS</div>
+          <button id="history-progress-drawer-btn" type="button" class="fast-type-chip text-[11px] md:text-[10px]" aria-controls="history-progress-drawer" aria-expanded="false" aria-label="Track your progress" title="Track your progress">
+            <svg class="h-6 w-6 text-current" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M3 13h3v8H3v-8Zm7-4h3v12h-3V9Zm7-6h3v18h-3V3Z"/>
+            </svg>
+            <span class="sr-only">Track your progress</span>
+          </button>
         </div>
 
         <div class="mt-2">
@@ -233,7 +231,7 @@
             </div>
           </div>
           <div class="flex flex-col items-center gap-3">
-            <div class="text-xs uppercase tracking-[0.2em] text-subtle">Calorie details</div>
+            <div class="text-xs uppercase tracking-[0.2em] text-subtle">TAKE ACTION</div>
             <div class="flex items-center justify-center gap-3">
               <button id="calorie-target-drawer-btn" type="button" class="fast-type-chip text-[11px] md:text-[10px]" aria-controls="calorie-target-drawer" aria-expanded="false" aria-label="Daily target" title="Daily target">
                 <svg class="h-6 w-6 text-current" viewBox="0 0 16 16" aria-hidden="true">
@@ -252,87 +250,127 @@
                 </svg>
                 <span class="sr-only">Goal Details</span>
               </button>
+              <button id="nutrition-progress-drawer-btn" type="button" class="fast-type-chip text-[11px] md:text-[10px]" aria-controls="nutrition-progress-drawer" aria-expanded="false" aria-label="Nutrition progress" title="Nutrition progress">
+                <svg class="h-6 w-6 text-current" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="currentColor" d="M21 3v2H3V3h18Zm-2 4v14h-3V7h3Zm-5 6v8h-3v-8h3Zm-5-4v12H6V9h3Z"/>
+                </svg>
+                <span class="sr-only">Nutrition Progress</span>
+              </button>
             </div>
             <p id="calorie-summary" class="text-sm md:text-xs text-muted text-center">Set a target to track remaining calories.</p>
-            <div class="w-full rounded-2xl border border-default surface-soft px-4 py-3">
-              <div class="text-xs uppercase tracking-[0.2em] text-subtle text-center mb-2">Daily macros, vitamins &amp; minerals tracker</div>
-              <div class="nutrition-grid">
-                <div class="nutrition-stat-card">
-                  <div id="nutrition-protein-value" class="nutrition-stat-value">0 g</div>
-                  <div class="nutrition-stat-label">Protein</div>
-                  <div id="nutrition-protein-goal" class="nutrition-stat-goal">Goal —</div>
-                </div>
-                <div class="nutrition-stat-card">
-                  <div id="nutrition-carbs-value" class="nutrition-stat-value">0 g</div>
-                  <div class="nutrition-stat-label">Carbs</div>
-                  <div id="nutrition-carbs-goal" class="nutrition-stat-goal">Goal —</div>
-                </div>
-                <div class="nutrition-stat-card">
-                  <div id="nutrition-fat-value" class="nutrition-stat-value">0 g</div>
-                  <div class="nutrition-stat-label">Fat</div>
-                  <div id="nutrition-fat-goal" class="nutrition-stat-goal">Goal —</div>
-                </div>
-                <div class="nutrition-stat-card">
-                  <div id="nutrition-sodium-value" class="nutrition-stat-value">0 mg</div>
-                  <div class="nutrition-stat-label">Sodium</div>
-                  <div id="nutrition-sodium-goal" class="nutrition-stat-goal">Goal —</div>
-                </div>
-                <div class="nutrition-stat-card">
-                  <div id="nutrition-potassium-value" class="nutrition-stat-value">0 mg</div>
-                  <div class="nutrition-stat-label">Potassium</div>
-                  <div id="nutrition-potassium-goal" class="nutrition-stat-goal">Goal —</div>
-                </div>
-                <div class="nutrition-stat-card">
-                  <div id="nutrition-calcium-value" class="nutrition-stat-value">0 mg</div>
-                  <div class="nutrition-stat-label">Calcium</div>
-                  <div id="nutrition-calcium-goal" class="nutrition-stat-goal">Goal —</div>
-                </div>
-                 <div class="nutrition-stat-card">
-                   <div id="nutrition-iron-value" class="nutrition-stat-value">0 mg</div>
-                   <div class="nutrition-stat-label">Iron</div>
-                   <div id="nutrition-iron-goal" class="nutrition-stat-goal">Goal —</div>
-                 </div>
-                 <div class="nutrition-stat-card">
-                   <div id="nutrition-magnesium-value" class="nutrition-stat-value">0 mg</div>
-                   <div class="nutrition-stat-label">Magnesium</div>
-                   <div id="nutrition-magnesium-goal" class="nutrition-stat-goal">Goal —</div>
-                 </div>
-                 <div class="nutrition-stat-card">
-                   <div id="nutrition-zinc-value" class="nutrition-stat-value">0 mg</div>
-                   <div class="nutrition-stat-label">Zinc</div>
-                   <div id="nutrition-zinc-goal" class="nutrition-stat-goal">Goal —</div>
-                 </div>
-                 <div class="nutrition-stat-card">
-                   <div id="nutrition-vitamin-a-value" class="nutrition-stat-value">0 mcg</div>
-                   <div class="nutrition-stat-label">Vitamin A</div>
-                   <div id="nutrition-vitamin-a-goal" class="nutrition-stat-goal">Goal —</div>
-                 </div>
-                 <div class="nutrition-stat-card">
-                   <div id="nutrition-vitamin-c-value" class="nutrition-stat-value">0 mg</div>
-                   <div class="nutrition-stat-label">Vitamin C</div>
-                   <div id="nutrition-vitamin-c-goal" class="nutrition-stat-goal">Goal —</div>
-                 </div>
-                 <div class="nutrition-stat-card">
-                   <div id="nutrition-vitamin-d-value" class="nutrition-stat-value">0 mcg</div>
-                   <div class="nutrition-stat-label">Vitamin D</div>
-                   <div id="nutrition-vitamin-d-goal" class="nutrition-stat-goal">Goal —</div>
-                 </div>
-                 <div class="nutrition-stat-card">
-                   <div id="nutrition-vitamin-b6-value" class="nutrition-stat-value">0 mg</div>
-                   <div class="nutrition-stat-label">Vitamin B6</div>
-                   <div id="nutrition-vitamin-b6-goal" class="nutrition-stat-goal">Goal —</div>
-                 </div>
-                 <div class="nutrition-stat-card">
-                   <div id="nutrition-vitamin-b12-value" class="nutrition-stat-value">0 mcg</div>
-                   <div class="nutrition-stat-label">Vitamin B12</div>
-                   <div id="nutrition-vitamin-b12-goal" class="nutrition-stat-goal">Goal —</div>
-                 </div>
-               </div>
-              <p id="nutrition-summary" class="text-xs md:text-[11px] text-muted text-center mt-3">Log a meal note to start tracking macros, vitamins, and minerals.</p>
-            </div>
+            <p id="nutrition-summary" class="text-xs md:text-[11px] text-muted text-center">Log a meal note to start tracking macros, vitamins, and minerals.</p>
           </div>
         </div>
 
+      </section>
+
+      <section id="history-progress-drawer" class="notes-drawer hidden">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+          <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
+            <div class="flex items-center justify-between gap-2">
+              <h2 class="text-base md:text-sm font-medium text-default">Track your progress</h2>
+              <button id="history-progress-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
+            </div>
+            <p class="text-sm md:text-xs text-muted">Review selected day details and note summaries.</p>
+          </div>
+          <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4 space-y-4">
+            <div>
+              <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Selected day</h2>
+              <div id="day-summary" class="text-sm md:text-xs text-muted mb-2 md:mb-1">No fasts logged</div>
+              <div id="day-fast-list" class="space-y-2 text-sm md:text-xs"></div>
+            </div>
+            <div>
+              <h2 class="text-xs uppercase tracking-[0.2em] text-subtle mb-1">Notes</h2>
+              <div id="day-notes-summary" class="text-sm md:text-xs text-muted mb-2 md:mb-1">No notes yet.</div>
+              <div id="day-notes-list" class="space-y-2 text-sm md:text-xs"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="nutrition-progress-drawer" class="notes-drawer hidden">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+          <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
+            <div class="flex items-center justify-between gap-2">
+              <h2 class="text-base md:text-sm font-medium text-default">Daily macros, vitamins &amp; minerals tracker</h2>
+              <button id="nutrition-progress-close" type="button" class="text-sm md:text-xs px-3 py-2 md:px-2 md:py-1 rounded-full button-outline border">Close</button>
+            </div>
+          </div>
+          <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
+            <div class="nutrition-grid">
+              <div class="nutrition-stat-card">
+                <div id="nutrition-protein-value" class="nutrition-stat-value">0 g</div>
+                <div class="nutrition-stat-label">Protein</div>
+                <div id="nutrition-protein-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-carbs-value" class="nutrition-stat-value">0 g</div>
+                <div class="nutrition-stat-label">Carbs</div>
+                <div id="nutrition-carbs-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-fat-value" class="nutrition-stat-value">0 g</div>
+                <div class="nutrition-stat-label">Fat</div>
+                <div id="nutrition-fat-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-sodium-value" class="nutrition-stat-value">0 mg</div>
+                <div class="nutrition-stat-label">Sodium</div>
+                <div id="nutrition-sodium-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-potassium-value" class="nutrition-stat-value">0 mg</div>
+                <div class="nutrition-stat-label">Potassium</div>
+                <div id="nutrition-potassium-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-calcium-value" class="nutrition-stat-value">0 mg</div>
+                <div class="nutrition-stat-label">Calcium</div>
+                <div id="nutrition-calcium-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-iron-value" class="nutrition-stat-value">0 mg</div>
+                <div class="nutrition-stat-label">Iron</div>
+                <div id="nutrition-iron-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-magnesium-value" class="nutrition-stat-value">0 mg</div>
+                <div class="nutrition-stat-label">Magnesium</div>
+                <div id="nutrition-magnesium-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-zinc-value" class="nutrition-stat-value">0 mg</div>
+                <div class="nutrition-stat-label">Zinc</div>
+                <div id="nutrition-zinc-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-vitamin-a-value" class="nutrition-stat-value">0 mcg</div>
+                <div class="nutrition-stat-label">Vitamin A</div>
+                <div id="nutrition-vitamin-a-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-vitamin-c-value" class="nutrition-stat-value">0 mg</div>
+                <div class="nutrition-stat-label">Vitamin C</div>
+                <div id="nutrition-vitamin-c-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-vitamin-d-value" class="nutrition-stat-value">0 mcg</div>
+                <div class="nutrition-stat-label">Vitamin D</div>
+                <div id="nutrition-vitamin-d-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-vitamin-b6-value" class="nutrition-stat-value">0 mg</div>
+                <div class="nutrition-stat-label">Vitamin B6</div>
+                <div id="nutrition-vitamin-b6-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+              <div class="nutrition-stat-card">
+                <div id="nutrition-vitamin-b12-value" class="nutrition-stat-value">0 mcg</div>
+                <div class="nutrition-stat-label">Vitamin B12</div>
+                <div id="nutrition-vitamin-b12-goal" class="nutrition-stat-goal">Goal —</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section id="tab-notes" class="notes-drawer hidden">
