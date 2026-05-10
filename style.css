@@ -227,7 +227,7 @@ body.bg-slate-950 {
 }
 
 .trainer-filter-panel {
-	border: 1px solid color-mix(in srgb, var(--secondary-color) 28%, var(--border-color));
+	border: 1px solid color-mix(in srgb, var(--text-subtle-color) 35%, var(--border-color));
 	border-radius: 16px;
 	background: color-mix(in srgb, var(--surface-color) 82%, var(--background-color));
 	padding: 10px;
@@ -242,7 +242,7 @@ body.bg-slate-950 {
 }
 
 .trainer-filter-title {
-	color: var(--text-color);
+	color: var(--text-subtle-color);
 	font-size: 0.78rem;
 	font-weight: 700;
 	line-height: 1.2;
@@ -258,10 +258,10 @@ body.bg-slate-950 {
 
 .trainer-filter-clear {
 	flex: 0 0 auto;
-	border: 1px solid var(--border-color);
+	border: 1px solid color-mix(in srgb, var(--text-subtle-color) 35%, var(--border-color));
 	border-radius: 999px;
 	background: var(--surface-color);
-	color: var(--text-muted-color);
+	color: var(--text-subtle-color);
 	font-size: 0.68rem;
 	font-weight: 750;
 	line-height: 1;
@@ -282,13 +282,13 @@ body.bg-slate-950 {
 .trainer-filter-btn {
 	min-width: 0;
 	display: flex;
-	align-items: center;
-	gap: 8px;
+	align-items: flex-start;
+	gap: 0;
 	padding: 9px;
-	border: 1px solid var(--border-color);
+	border: 1px solid color-mix(in srgb, var(--text-subtle-color) 25%, var(--border-color));
 	border-radius: 12px;
 	background: var(--surface-color);
-	color: var(--text-color);
+	color: var(--text-subtle-color);
 	text-align: left;
 	transition:
 		border-color 0.16s linear,
@@ -297,29 +297,14 @@ body.bg-slate-950 {
 }
 
 .trainer-filter-btn.is-active {
-	border-color: var(--secondary-color);
-	background: color-mix(in srgb, var(--secondary-color) 18%, var(--surface-color));
+	border-color: var(--text-subtle-color);
+	background: color-mix(in srgb, var(--text-subtle-color) 15%, var(--surface-color));
 }
 
 .trainer-filter-btn:focus-visible,
 .trainer-filter-clear:focus-visible {
-	outline: 2px solid var(--secondary-color);
+	outline: 2px solid var(--text-subtle-color);
 	outline-offset: 2px;
-}
-
-.trainer-filter-icon {
-	width: 32px;
-	height: 32px;
-	flex: 0 0 auto;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 10px;
-	background: color-mix(in srgb, var(--secondary-color) 18%, transparent);
-	color: color-mix(in srgb, var(--secondary-color) 70%, white);
-	font-size: 0.64rem;
-	font-weight: 850;
-	line-height: 1;
 }
 
 .trainer-filter-copy {
@@ -330,7 +315,7 @@ body.bg-slate-950 {
 }
 
 .trainer-filter-label {
-	color: var(--text-color);
+	color: var(--text-muted-color);
 	font-size: 0.76rem;
 	font-weight: 750;
 	line-height: 1.15;

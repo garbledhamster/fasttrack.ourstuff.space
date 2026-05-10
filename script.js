@@ -4299,6 +4299,7 @@ function getAITrainerNoteFilters() {
 function setAITrainerNoteFilters(filters) {
 	aiTrainerNoteFilterOverride = normalizeTrainerNoteFilters(filters);
 	renderAITrainerNoteFilters();
+	renderNotesTab();
 }
 
 function toggleAITrainerNoteFilter(filterId) {
@@ -6930,6 +6931,7 @@ function renderAITrainerNotesRangeOverride() {
 	slider.value = range;
 	label.textContent = OPENAI_NOTES_RANGE_LABELS[range];
 	renderAITrainerNoteFilters();
+	renderNotesTab();
 }
 
 function renderAITrainerNoteFilters() {
