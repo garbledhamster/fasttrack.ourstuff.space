@@ -5447,7 +5447,7 @@ async function generateTrainerQuickQuestionResponse({
 		const firstParagraph = aiText.split(/\n\s*\n/u)[0] || "";
 		const response = normalizeSingleParagraph(
 			firstParagraph,
-			TRAINER_NOTE_CONVERSATION_MAX_CHARS,
+			TRAINER_QUICK_RESPONSE_MAX_CHARS,
 		);
 		if (!response) {
 			showToast("No response from AI");
@@ -5540,7 +5540,7 @@ async function generateAITrainerNoteConversationResponse({
 		const firstParagraph = aiText.split(/\n\s*\n/u)[0] || "";
 		const response = normalizeSingleParagraph(
 			firstParagraph,
-			TRAINER_QUICK_RESPONSE_MAX_CHARS,
+			TRAINER_NOTE_CONVERSATION_MAX_CHARS,
 		);
 		if (!response) {
 			showToast("No response from AI");
