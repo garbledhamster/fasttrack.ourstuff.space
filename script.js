@@ -287,6 +287,7 @@ const defaultState = {
 		openaiModel: DEFAULT_OPENAI_MODEL,
 		openaiReasoningEffort: "none",
 		openaiTrainerInstructions: "",
+		openaiNotesRange: 0,
 		calories: {
 			dailyTarget: null,
 			goal: "",
@@ -1553,6 +1554,9 @@ function mergeStateWithDefaults(parsed) {
 		typeof merged.settings.openaiTrainerInstructions === "string"
 			? merged.settings.openaiTrainerInstructions
 			: "";
+	merged.settings.openaiNotesRange = normalizeOpenAINotesRange(
+		merged.settings.openaiNotesRange,
+	);
 	merged.activeFast = parsed.activeFast || null;
 	merged.history = Array.isArray(parsed.history) ? parsed.history : [];
 	merged.reminders = Object.assign(merged.reminders, parsed.reminders || {});
@@ -3527,6 +3531,49 @@ function normalizeOpenAIReasoningEffort(value) {
 	return OPENAI_REASONING_EFFORTS.has(next) ? next : "none";
 }
 
+const OPENAI_NOTES_RANGE_MAX = 6;
+const OPENAI_NOTES_RANGE_LABELS = [
+	"No notes",
+	"Last note",
+	"Today's notes",
+	"This week's notes",
+	"This month's notes",
+	"This year's notes",
+	"All notes",
+];
+
+function normalizeOpenAINotesRange(value) {
+	const n = Number(value);
+	if (!Number.isFinite(n) || n < 0) return 0;
+	return Math.min(Math.round(n), OPENAI_NOTES_RANGE_MAX);
+}
+
+function getNotesForTrainer() {
+	const range = normalizeOpenAINotesRange(state.settings.openaiNotesRange);
+	if (range === 0 || !notes.length) return [];
+	const now = Date.now();
+	const sorted = [...notes].sort(
+		(a, b) => (b.createdAt || 0) - (a.createdAt || 0),
+	);
+	if (range === 1) return sorted.slice(0, 1);
+	let cutoff;
+	if (range === 2) {
+		const d = new Date();
+		cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+	} else if (range === 3) {
+		cutoff = now - 7 * 24 * 60 * 60 * 1000;
+	} else if (range === 4) {
+		const d = new Date();
+		cutoff = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+	} else if (range === 5) {
+		const d = new Date();
+		cutoff = new Date(d.getFullYear(), 0, 1).getTime();
+	} else {
+		return sorted;
+	}
+	return sorted.filter((n) => (n.createdAt || 0) >= cutoff);
+}
+
 function sanitizeBearerToken(value) {
 	const token = String(value || "").trim();
 	if (!token || /[\r\n]/.test(token)) return "";
@@ -3674,19 +3721,29 @@ async function recommendGoalPlanWithAI() {
 	}
 
 	const profile = buildGoalRecommendationProfile();
+	const trainerNotes = getNotesForTrainer().map((n) => ({
+		date: n.createdAt ? new Date(n.createdAt).toISOString() : null,
+		text: n.text || null,
+	}));
 	const recommendationPrompt = [
 		"You are a personal trainer and nutrition coach.",
 		"Recommend a realistic calorie and daily nutrient plan tailored to the user profile.",
 		"Respect the user instructions and account for dietary needs, injuries, and limitations.",
+		trainerNotes.length
+			? "The user has shared journal notes — use them to refine your recommendations."
+			: "",
 		"Return ONLY valid JSON in this exact shape:",
 		'{"dailyTarget": number|null, "goal": "lose"|"maintain"|"gain"|null, "nutrientGoals": {"macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}}.',
 		"Use grams for macros, milligrams for micros and vitaminC/vitaminB6, and micrograms for vitaminA/vitaminD/vitaminB12.",
 		"Use numbers only, no units, no extra keys, no markdown, no explanation.",
-	].join(" ");
+	]
+		.filter(Boolean)
+		.join(" ");
 	const userPayload = JSON.stringify(
 		{
 			profile,
 			instructions: trainerInstructions || null,
+			notes: trainerNotes.length ? trainerNotes : null,
 		},
 		null,
 		2,
@@ -3967,6 +4024,17 @@ function initButtons() {
 
 	$("openai-trainer-instructions").addEventListener("change", (event) => {
 		state.settings.openaiTrainerInstructions = String(event.target.value || "");
+		void saveState();
+	});
+
+	$("openai-notes-range").addEventListener("input", (event) => {
+		state.settings.openaiNotesRange = normalizeOpenAINotesRange(
+			event.target.value,
+		);
+		const label = $("openai-notes-range-label");
+		if (label)
+			label.textContent =
+				OPENAI_NOTES_RANGE_LABELS[state.settings.openaiNotesRange];
 		void saveState();
 	});
 
@@ -4344,6 +4412,13 @@ function renderSettings() {
 	$("openai-api-key").value = state.settings.openaiApiKey || "";
 	$("openai-trainer-instructions").value =
 		state.settings.openaiTrainerInstructions || "";
+	const notesRangeSlider = $("openai-notes-range");
+	if (notesRangeSlider) {
+		const rangeVal = normalizeOpenAINotesRange(state.settings.openaiNotesRange);
+		notesRangeSlider.value = rangeVal;
+		const label = $("openai-notes-range-label");
+		if (label) label.textContent = OPENAI_NOTES_RANGE_LABELS[rangeVal];
+	}
 	renderOpenAIModelOptions();
 	if (reasoningSelect) {
 		reasoningSelect.value = normalizeOpenAIReasoningEffort(
