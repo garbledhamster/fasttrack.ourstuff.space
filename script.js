@@ -3913,6 +3913,7 @@ const AI_TRAINER_NOTE_PROMPT = [
 	"Keep output light and actionable: max 4 short bullet points, no markdown headings, no fluff.",
 	"If information is missing, give safe, realistic suggestions and mention uncertainty briefly.",
 ].join(" ");
+const AI_TRAINER_NOTE_TITLE = "AI Trainer Note";
 
 function normalizeOpenAINotesRange(value) {
 	const n = Number(value);
@@ -4420,7 +4421,7 @@ async function addAITrainerNote() {
 	const trainerText = await generateTrainerNoteWithAI();
 	if (!trainerText) return false;
 	const noteId = await createNote({
-		text: `AI Trainer Note\n${trainerText}`,
+		text: `${AI_TRAINER_NOTE_TITLE}\n${trainerText}`,
 		dateKey: formatDateKey(new Date()),
 		fastContext: buildFastContext(),
 	});
