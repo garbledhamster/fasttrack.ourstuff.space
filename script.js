@@ -3675,7 +3675,7 @@ async function recommendGoalPlanWithAI() {
 		"Recommend a realistic calorie and daily nutrient plan tailored to the user profile.",
 		"Respect the user instructions and account for dietary needs, injuries, and limitations.",
 		'Return ONLY valid JSON in this exact shape: {"dailyTarget": number|null, "goal": "lose"|"maintain"|"gain"|null, "nutrientGoals": {"macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}}.',
-		"Use grams for macros, milligrams for micros and vitaminC/vitaminB6, and micrograms for vitaminA/vitaminD/vitamin B12.",
+		"Use grams for macros, milligrams for micros and vitaminC/vitaminB6, and micrograms for vitaminA/vitaminD/vitaminB12.",
 		"Use numbers only, no units, no extra keys, no markdown, no explanation.",
 	].join(" ");
 	const userPayload = JSON.stringify(
