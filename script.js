@@ -1355,7 +1355,7 @@ function applyNoteEditorReadOnlyState(readOnly) {
 	const readOnlyNotice = $("note-editor-readonly");
 	if (readOnlyNotice) {
 		readOnlyNotice.textContent = isTrainerNote
-			? "Core trainer note is read-only · continue the chat below."
+			? "Core trainer note is read-only · Continue the chat below."
 			: "AI trainer note · read-only";
 		readOnlyNotice.classList.toggle("hidden", !readOnly);
 	}
@@ -5447,7 +5447,7 @@ async function generateTrainerQuickQuestionResponse({
 		const firstParagraph = aiText.split(/\n\s*\n/u)[0] || "";
 		const response = normalizeSingleParagraph(
 			firstParagraph,
-			TRAINER_QUICK_RESPONSE_MAX_CHARS,
+			TRAINER_NOTE_CONVERSATION_MAX_CHARS,
 		);
 		if (!response) {
 			showToast("No response from AI");
