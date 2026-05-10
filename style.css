@@ -1465,7 +1465,7 @@ body.bg-slate-950 {
 	transition: max-height 0.35s ease;
 }
 
-.trainer-options-panel > * ,
+.trainer-options-panel > *,
 .note-card {
 	box-sizing: border-box;
 	max-width: 100%;
