@@ -84,7 +84,7 @@
   </div>
 
   <div id="app" class="flex flex-col min-h-screen hidden">
-    <header class="px-4 pt-4 md:pt-16 pb-3 flex items-center justify-between">
+    <header class="px-5 md:px-4 pt-4 md:pt-16 pb-3 flex items-center justify-between">
       <div class="flex flex-col">
         <h1 class="text-xl md:text-lg font-semibold tracking-tight">Fast Track</h1>
         <p id="header-subtitle" class="text-sm md:text-xs text-muted">No active fast</p>
@@ -108,7 +108,7 @@
       </div>
     </header>
 
-    <main class="flex-1 px-4 pb-28 md:pb-20 pt-1 md:pt-2">
+    <main class="flex-1 px-5 md:px-4 pb-28 md:pb-20 pt-1 md:pt-2">
       <section id="tab-timer" class="tracker-tab h-full flex flex-col gap-6 md:gap-5">
         <div class="tracker-ring-wrap flex justify-center mt-6 md:mt-4">
           <div class="w-full max-w-md">
@@ -274,7 +274,7 @@
       </section>
 
       <section id="history-progress-drawer" class="notes-drawer hidden">
-        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default px-5 py-4 md:px-4">
           <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
             <div class="flex items-center justify-between gap-2">
               <h2 class="text-base md:text-sm font-medium text-default">Daily progress</h2>
@@ -301,7 +301,7 @@
       </section>
 
       <section id="history-notes-drawer" class="notes-drawer hidden">
-        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default px-5 py-4 md:px-4">
           <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
             <div class="flex items-center justify-between gap-2">
               <h2 class="text-base md:text-sm font-medium text-default">Today's notes</h2>
@@ -320,7 +320,7 @@
       </section>
 
       <section id="recent-fasts-drawer" class="notes-drawer hidden">
-        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default px-5 py-4 md:px-4">
           <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
             <div class="flex items-center justify-between gap-2">
               <h2 class="text-base md:text-sm font-medium text-default">Recent fasts</h2>
@@ -335,7 +335,7 @@
       </section>
 
       <section id="nutrition-progress-drawer" class="notes-drawer hidden">
-        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default px-5 py-4 md:px-4">
           <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
             <div class="flex items-center justify-between gap-2">
               <h2 class="text-base md:text-sm font-medium text-default">Daily macros, vitamins &amp; minerals tracker</h2>
@@ -420,8 +420,8 @@
       </section>
 
       <section id="tab-notes" class="notes-drawer hidden">
-        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
-          <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default px-5 py-4 md:px-4">
+          <div class="notes-drawer-menu notes-drawer-menu--notes space-y-4 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
             <div>
               <h2 class="text-base md:text-sm font-medium text-default">Notes</h2>
               <p class="text-sm md:text-xs text-muted">Capture reflections, cravings, or wins alongside your fasts.</p>
@@ -478,19 +478,20 @@
             </div>
           </div>
 
-          <div class="notes-drawer-content flex-1 min-h-0 overflow-y-auto pt-4">
+          <div class="notes-drawer-content notes-drawer-content--notes flex-1 min-h-0 overflow-y-auto pt-3">
             <div id="notes-empty" class="note-empty hidden">
               <div id="notes-empty-title" class="text-default font-medium mb-1">No notes yet</div>
               <div id="notes-empty-body" class="text-sm md:text-xs text-muted">Start a new note to track how your fast feels.</div>
             </div>
 
-            <div id="notes-list" class="space-y-3 mt-4"></div>
+            <div id="notes-viewer-summary" class="text-xs md:text-[11px] text-subtle mb-3 hidden"></div>
+            <div id="notes-list" class="space-y-3"></div>
           </div>
         </div>
       </section>
 
       <section id="tab-settings" class="notes-drawer hidden">
-        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+        <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default px-5 py-4 md:px-4">
           <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
             <div class="flex items-center justify-between gap-2">
               <div>
@@ -751,7 +752,7 @@
   </div>
 
   <section id="calorie-target-drawer" class="notes-drawer hidden">
-    <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+    <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default px-5 py-4 md:px-4">
       <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
         <div class="flex items-center justify-between gap-2">
           <h2 class="text-base md:text-sm font-medium text-default">Daily target</h2>
@@ -801,7 +802,7 @@
   </section>
 
   <section id="calorie-goal-drawer" class="notes-drawer hidden">
-    <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default p-4">
+    <div class="notes-drawer-panel flex flex-col gap-4 bg-app border-l border-default px-5 py-4 md:px-4">
       <div class="notes-drawer-menu space-y-3 sticky top-0 z-10 surface-appbar backdrop-blur pb-4">
         <div class="flex items-center justify-between gap-2">
           <h2 class="text-base md:text-sm font-medium text-default">Personal details</h2>

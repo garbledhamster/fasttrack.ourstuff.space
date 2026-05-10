@@ -6985,9 +6985,14 @@ function renderNotesTab() {
 	const empty = $("notes-empty");
 	const emptyTitle = $("notes-empty-title");
 	const emptyBody = $("notes-empty-body");
+	const viewerSummary = $("notes-viewer-summary");
 	if (!list || !empty || !emptyTitle || !emptyBody) return;
 
 	list.innerHTML = "";
+	if (viewerSummary) {
+		viewerSummary.textContent = "";
+		viewerSummary.classList.add("hidden");
+	}
 
 	if (!notesLoaded) {
 		emptyTitle.textContent = `Loading notes${UI_ELLIPSIS}`;
@@ -7003,8 +7008,27 @@ function renderNotesTab() {
 		return;
 	}
 
+	const trainerPreviewNotes = getNotesForTrainer(getAITrainerNotesRangeOverride());
+	const visibleNotes = trainerPreviewNotes;
+	const hiddenCount = Math.max(0, notes.length - visibleNotes.length);
 	empty.classList.add("hidden");
-	notes.forEach((note) => {
+	if (viewerSummary) {
+		viewerSummary.textContent =
+			hiddenCount > 0
+				? `Showing ${visibleNotes.length} of ${notes.length} notes selected for the trainer preview.`
+				: visibleNotes.length
+					? `Showing all ${visibleNotes.length} notes selected for the trainer preview.`
+					: "Trainer preview is set to send no notes.";
+		viewerSummary.classList.remove("hidden");
+	}
+	if (!visibleNotes.length) {
+		emptyTitle.textContent = "No notes selected";
+		emptyBody.textContent =
+			"Adjust the trainer note range or filters above to preview notes that will be sent.";
+		empty.classList.remove("hidden");
+		return;
+	}
+	visibleNotes.forEach((note) => {
 		list.appendChild(buildNoteCard(note));
 	});
 }

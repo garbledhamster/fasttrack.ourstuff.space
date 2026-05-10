@@ -1183,6 +1183,10 @@ body.bg-slate-950 {
 	padding-right: 15px;
 }
 
+.notes-drawer-content--notes {
+	padding-top: 12px;
+}
+
 .notes-drawer-content::-webkit-scrollbar {
 	width: 10px;
 }
@@ -1190,7 +1194,7 @@ body.bg-slate-950 {
 .notes-drawer-content::-webkit-scrollbar-track {
 	background: rgb(15, 23, 42, 0.6);
 	border-radius: 999px;
-	margin: 8px 0;
+	margin: 12px 0 8px;
 }
 
 .notes-drawer-content::-webkit-scrollbar-thumb {
@@ -1214,6 +1218,10 @@ body.bg-slate-950 {
 /* open state */
 .notes-drawer.is-open .notes-drawer-panel {
 	transform: translateX(0);
+}
+
+.notes-drawer-menu--notes {
+	padding-bottom: 18px;
 }
 
 /* Note editor (must be ABOVE the notes drawer) */
