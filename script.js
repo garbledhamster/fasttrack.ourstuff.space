@@ -276,6 +276,14 @@ const OPENAI_ALLOWED_MODELS = Object.freeze([
 	"gpt-5.4-mini",
 ]);
 const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
+const OPENAI_EXTRACTION_MODEL = "gpt-5.4-mini";
+const AI_TOOL_PROVIDER_KEYS = Object.freeze([
+	"trainerNote",
+	"trainerQuickQuestion",
+	"trainerConversation",
+	"recommendation",
+	"nutritionEstimate",
+]);
 const SUPPORTED_LLM_PROVIDERS = new Set(["openai", "byo"]);
 const DEFAULT_LLM_PROVIDER = "openai";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
@@ -308,6 +316,13 @@ const defaultState = {
 			headersJson: "",
 			trainerInstructions: "",
 			notesRange: 0,
+		},
+		aiToolProviders: {
+			trainerNote: "",
+			trainerQuickQuestion: "",
+			trainerConversation: "",
+			recommendation: "",
+			nutritionEstimate: "",
 		},
 		calories: {
 			dailyTarget: null,
@@ -1710,7 +1725,7 @@ async function sendNoteEditorTrainerMessage() {
 			message,
 			conversation: existingConversation,
 			rangeOverride: getAITrainerNotesRangeOverride(),
-			providerOverride: getAITrainerProviderOverride(),
+			providerOverride: getAITrainerProviderOverride("trainerConversation"),
 			signal: abortController.signal,
 		});
 		if (!reply) return;
@@ -1985,6 +2000,9 @@ function mergeStateWithDefaults(parsed) {
 		merged.settings.openaiNotesRange,
 	);
 	merged.settings.byoLlm = normalizeByoLlmSettings(merged.settings.byoLlm);
+	merged.settings.aiToolProviders = normalizeAIToolProviders(
+		merged.settings.aiToolProviders,
+	);
 	merged.activeFast = parsed.activeFast || null;
 	merged.history = Array.isArray(parsed.history) ? parsed.history : [];
 	merged.reminders = Object.assign(merged.reminders, parsed.reminders || {});
@@ -4515,10 +4533,14 @@ function getGlobalTrainerContextRange(providerOverride = null) {
 		: normalizeOpenAINotesRange(state.settings.openaiNotesRange);
 }
 
-function getAITrainerProviderOverride() {
-	return aiTrainerProviderOverride === null
-		? normalizeLLMProvider(state.settings.llmProvider)
-		: normalizeLLMProvider(aiTrainerProviderOverride);
+function getAITrainerProviderOverride(toolKey = null) {
+	if (aiTrainerProviderOverride !== null) {
+		return normalizeLLMProvider(aiTrainerProviderOverride);
+	}
+	if (toolKey) {
+		return getAIToolProvider(toolKey);
+	}
+	return normalizeLLMProvider(state.settings.llmProvider);
 }
 
 function getTrainerContextRange(providerOverride = null) {
@@ -4724,6 +4746,22 @@ function normalizeByoLlmSettings(value) {
 				: "",
 		notesRange: normalizeOpenAINotesRange(raw.notesRange),
 	};
+}
+
+function normalizeAIToolProviders(value) {
+	const raw = value && typeof value === "object" ? value : {};
+	const out = {};
+	for (const key of AI_TOOL_PROVIDER_KEYS) {
+		const v = String(raw[key] || "").trim();
+		out[key] = v === "openai" || v === "byo" ? v : "";
+	}
+	return out;
+}
+
+function getAIToolProvider(toolKey) {
+	const providers = state.settings.aiToolProviders || {};
+	const perTool = String(providers[toolKey] || "").trim();
+	return normalizeLLMProvider(perTool || state.settings.llmProvider);
 }
 
 function parseByoLlmHeaders(headersText) {
@@ -4987,12 +5025,6 @@ function buildFastingScheduleContext() {
 	return {
 		defaultFastType: buildTrainerFastTypeSummary(defaultType),
 		selectedFastType: buildTrainerFastTypeSummary(selectedType),
-		availableFastTypes: FAST_TYPES.map(buildTrainerFastTypeSummary).filter(
-			Boolean,
-		),
-		physiologyNotes: Array.isArray(FASTING_HOURLY.notes)
-			? FASTING_HOURLY.notes.slice(0, 3)
-			: [],
 	};
 }
 
@@ -5046,9 +5078,6 @@ function buildTrainerContinuityContext(
 				) || null,
 		}),
 	);
-	const previousAITrainerNotes = trainerNotes.filter(
-		(note) => note.isAITrainerNote,
-	);
 	const completedFasts = getFastsForTrainer(range).map(
 		buildTrainerCompletedFastSummary,
 	);
@@ -5060,11 +5089,29 @@ function buildTrainerContinuityContext(
 				)
 			: null,
 		notes: trainerNotes.length ? trainerNotes : null,
-		previousAITrainerNotes: previousAITrainerNotes.length
-			? previousAITrainerNotes
-			: null,
 		completedFasts: completedFasts.length ? completedFasts : null,
 	};
+}
+
+function compactAIContext(obj) {
+	function strip(val) {
+		if (val === null) return undefined;
+		if (typeof val === "string" && val === "") return undefined;
+		if (Array.isArray(val)) {
+			const arr = val.map(strip).filter((v) => v !== undefined);
+			return arr.length === 0 ? undefined : arr;
+		}
+		if (typeof val === "object") {
+			const out = {};
+			for (const [k, v] of Object.entries(val)) {
+				const s = strip(v);
+				if (s !== undefined) out[k] = s;
+			}
+			return Object.keys(out).length === 0 ? undefined : out;
+		}
+		return val;
+	}
+	return JSON.stringify(strip(obj) ?? null);
 }
 
 async function callAIChatCompletions({
@@ -5074,6 +5121,7 @@ async function callAIChatCompletions({
 	withReasoningFallback = false,
 	signal = null,
 	providerOverride = null,
+	modelOverride = null,
 }) {
 	const config = getAIProviderSettings(providerOverride);
 	if (!config.apiUrl) {
@@ -5104,8 +5152,14 @@ async function callAIChatCompletions({
 	const usingReasoning =
 		config.reasoningEffort !== "none" &&
 		(config.provider === "byo" || supportsReasoningEffort(config.model));
+	const effectiveModel =
+		modelOverride &&
+		config.provider === "openai" &&
+		OPENAI_ALLOWED_MODELS.includes(modelOverride)
+			? modelOverride
+			: config.model;
 	const requestBody = {
-		model: config.model,
+		model: effectiveModel,
 		messages: [
 			{ role: "system", content: systemPrompt },
 			{ role: "user", content: userPrompt },
@@ -5148,11 +5202,19 @@ async function callAIChatCompletions({
 		);
 		return null;
 	}
-	return await response.json();
+	const data = await response.json();
+	if (data?.usage) {
+		console.log(
+			`[AI] ${purpose} — prompt_tokens: ${data.usage.prompt_tokens}, completion_tokens: ${data.usage.completion_tokens}, total_tokens: ${data.usage.total_tokens}`,
+		);
+	}
+	return data;
 }
 
-async function recommendGoalPlanWithAI() {
-	const provider = normalizeLLMProvider(state.settings.llmProvider);
+async function recommendGoalPlanWithAI(providerOverride = null) {
+	const provider = normalizeLLMProvider(
+		providerOverride === null ? state.settings.llmProvider : providerOverride,
+	);
 	const byoLlm = normalizeByoLlmSettings(state.settings.byoLlm);
 	const trainerInstructions = String(
 		provider === "byo"
@@ -5179,23 +5241,20 @@ async function recommendGoalPlanWithAI() {
 	]
 		.filter(Boolean)
 		.join(" ");
-	const userPayload = JSON.stringify(
-		{
-			profile,
-			instructions: trainerInstructions || null,
-			fastingSchedule: buildFastingScheduleContext(),
-			activeFast: buildTrainerActiveFastContext(),
-			trainerContext,
-		},
-		null,
-		2,
-	);
+	const userPayload = compactAIContext({
+		profile,
+		instructions: trainerInstructions || null,
+		fastingSchedule: buildFastingScheduleContext(),
+		activeFast: buildTrainerActiveFastContext(),
+		trainerContext,
+	});
 
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: recommendationPrompt,
 			userPrompt: userPayload,
 			purpose: "AI recommendation",
+			providerOverride: provider,
 		});
 		if (!data) {
 			return null;
@@ -5219,7 +5278,7 @@ async function recommendGoalPlanWithAI() {
 	}
 }
 
-async function estimateCaloriesWithAI(noteContent) {
+async function estimateCaloriesWithAI(noteContent, providerOverride = null) {
 	const nutritionDetails = String(noteContent || "").trim();
 	const nutritionPrompt = [
 		"You are a precise nutritional expert.",
@@ -5241,9 +5300,11 @@ async function estimateCaloriesWithAI(noteContent) {
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: nutritionPrompt,
-			userPrompt: JSON.stringify({ noteContent: nutritionDetails }, null, 2),
+			userPrompt: compactAIContext({ noteContent: nutritionDetails }),
 			purpose: "AI nutrition estimate",
 			withReasoningFallback: true,
+			modelOverride: OPENAI_EXTRACTION_MODEL,
+			providerOverride,
 		});
 		if (!data) {
 			return null;
@@ -5300,22 +5361,18 @@ async function generateTrainerNoteWithAI(
 	const todayKey = formatDateKey(new Date());
 	const todayCalories = getNoteCaloriesForDateKey(todayKey);
 	const todayNutrition = formatNutritionInlineSummary(todayKey);
-	const userPayload = JSON.stringify(
-		{
-			profile,
-			instructions: trainerInstructions || null,
-			fastingSchedule: buildFastingScheduleContext(),
-			activeFast: buildTrainerActiveFastContext(),
-			today: {
-				dateKey: todayKey,
-				calories: Number.isFinite(todayCalories) ? todayCalories : null,
-				nutritionSummary: todayNutrition || null,
-			},
-			trainerContext,
+	const userPayload = compactAIContext({
+		profile,
+		instructions: trainerInstructions || null,
+		fastingSchedule: buildFastingScheduleContext(),
+		activeFast: buildTrainerActiveFastContext(),
+		today: {
+			dateKey: todayKey,
+			calories: Number.isFinite(todayCalories) ? todayCalories : null,
+			nutritionSummary: todayNutrition || null,
 		},
-		null,
-		2,
-	);
+		trainerContext,
+	});
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: AI_TRAINER_NOTE_PROMPT,
@@ -5409,21 +5466,17 @@ async function generateTrainerQuickQuestionResponse({
 		rangeOverride,
 		providerOverride,
 	);
-	const userPayload = JSON.stringify(
-		{
-			quickQuestion: normalizedQuestion,
-			fastingSchedule: buildFastingScheduleContext(),
-			activeFast: buildTrainerActiveFastContext(),
-			today: {
-				dateKey: formatDateKey(new Date()),
-				nutritionSummary:
-					formatNutritionInlineSummary(formatDateKey(new Date())) || null,
-			},
-			trainerContext,
+	const userPayload = compactAIContext({
+		quickQuestion: normalizedQuestion,
+		fastingSchedule: buildFastingScheduleContext(),
+		activeFast: buildTrainerActiveFastContext(),
+		today: {
+			dateKey: formatDateKey(new Date()),
+			nutritionSummary:
+				formatNutritionInlineSummary(formatDateKey(new Date())) || null,
 		},
-		null,
-		2,
-	);
+		trainerContext,
+	});
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: AI_TRAINER_QUICK_QUESTION_PROMPT,
@@ -5488,35 +5541,31 @@ async function generateAITrainerNoteConversationResponse({
 	}
 	const normalizedConversationMessages =
 		normalizeTrainerConversationMessages(conversation);
-	const userPayload = JSON.stringify(
-		{
-			coreNote: {
-				id: note?.id || null,
-				date: note?.createdAt ? new Date(note.createdAt).toISOString() : null,
-				text: getDisplayNoteText(note) || null,
-			},
-			conversation: normalizedConversationMessages.length
-				? normalizedConversationMessages.map((entry) => ({
-						role: entry.role,
-						content: entry.content,
-					}))
-				: null,
-			userMessage: normalizedMessage,
-			fastingSchedule: buildFastingScheduleContext(),
-			activeFast: buildTrainerActiveFastContext(),
-			today: {
-				dateKey: formatDateKey(new Date()),
-				nutritionSummary:
-					formatNutritionInlineSummary(formatDateKey(new Date())) || null,
-			},
-			trainerContext: buildTrainerContinuityContext(
-				rangeOverride,
-				providerOverride,
-			),
+	const userPayload = compactAIContext({
+		coreNote: {
+			id: note?.id || null,
+			date: note?.createdAt ? new Date(note.createdAt).toISOString() : null,
+			text: getDisplayNoteText(note) || null,
 		},
-		null,
-		2,
-	);
+		conversation: normalizedConversationMessages.length
+			? normalizedConversationMessages.map((entry) => ({
+					role: entry.role,
+					content: entry.content,
+				}))
+			: null,
+		userMessage: normalizedMessage,
+		fastingSchedule: buildFastingScheduleContext(),
+		activeFast: buildTrainerActiveFastContext(),
+		today: {
+			dateKey: formatDateKey(new Date()),
+			nutritionSummary:
+				formatNutritionInlineSummary(formatDateKey(new Date())) || null,
+		},
+		trainerContext: buildTrainerContinuityContext(
+			rangeOverride,
+			providerOverride,
+		),
+	});
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: AI_TRAINER_NOTE_CONVERSATION_PROMPT,
@@ -5688,6 +5737,22 @@ function initButtons() {
 		void saveState();
 		renderSettings();
 	});
+
+	for (const toolKey of AI_TOOL_PROVIDER_KEYS) {
+		for (const providerValue of ["openai", "byo"]) {
+			const radio = $(`ai-tool-${toolKey}-${providerValue}`);
+			if (radio) {
+				radio.addEventListener("change", (event) => {
+					if (!event.target.checked) return;
+					if (!state.settings.aiToolProviders) {
+						state.settings.aiToolProviders = normalizeAIToolProviders({});
+					}
+					state.settings.aiToolProviders[toolKey] = providerValue;
+					void saveState();
+				});
+			}
+		}
+	}
 
 	$("toggle-end-alert").addEventListener("click", () => {
 		state.settings.notifyOnEnd = !state.settings.notifyOnEnd;
@@ -6061,7 +6126,7 @@ function initButtons() {
 			const added = await addAITrainerQuickQuestionNote({
 				question,
 				rangeOverride: getAITrainerNotesRangeOverride(),
-				providerOverride: getAITrainerProviderOverride(),
+				providerOverride: getAITrainerProviderOverride("trainerQuickQuestion"),
 				signal: abortController.signal,
 			});
 			if (added) input.value = "";
@@ -6090,7 +6155,7 @@ function initButtons() {
 			await addAITrainerNote(
 				getAITrainerNotesRangeOverride(),
 				abortController.signal,
-				getAITrainerProviderOverride(),
+				getAITrainerProviderOverride("trainerNote"),
 			);
 		} finally {
 			if (aiTrainerNoteAbortController === abortController) {
@@ -6125,7 +6190,9 @@ function initButtons() {
 		const originalText = button.textContent;
 		button.disabled = true;
 		button.textContent = "Recommending...";
-		const recommendation = await recommendGoalPlanWithAI();
+		const recommendation = await recommendGoalPlanWithAI(
+			getAIToolProvider("recommendation"),
+		);
 		button.disabled = false;
 		button.textContent = originalText;
 		if (!recommendation) return;
@@ -6176,7 +6243,10 @@ function initButtons() {
 		button.innerHTML =
 			'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>';
 
-		const estimatedNutrition = await estimateCaloriesWithAI(noteContent);
+		const estimatedNutrition = await estimateCaloriesWithAI(
+			noteContent,
+			getAIToolProvider("nutritionEstimate"),
+		);
 
 		// Re-enable button and restore original icon
 		button.disabled = false;
@@ -6441,6 +6511,16 @@ function renderSettings() {
 		void loadOpenAIModels();
 	}
 	renderAlertsPill();
+	const toolProviders = normalizeAIToolProviders(
+		state.settings.aiToolProviders,
+	);
+	for (const toolKey of AI_TOOL_PROVIDER_KEYS) {
+		const effectiveProvider = toolProviders[toolKey] || llmProvider;
+		const openaiRadio = $(`ai-tool-${toolKey}-openai`);
+		const byoRadio = $(`ai-tool-${toolKey}-byo`);
+		if (openaiRadio) openaiRadio.checked = effectiveProvider === "openai";
+		if (byoRadio) byoRadio.checked = effectiveProvider === "byo";
+	}
 }
 
 function applyRingEmojiVisibility() {
