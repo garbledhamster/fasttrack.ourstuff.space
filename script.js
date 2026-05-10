@@ -276,6 +276,7 @@ const OPENAI_ALLOWED_MODELS = Object.freeze([
 	"gpt-5.4-mini",
 ]);
 const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
+const OPENAI_EXTRACTION_MODEL = "gpt-5.4-mini";
 const SUPPORTED_LLM_PROVIDERS = new Set(["openai", "byo"]);
 const DEFAULT_LLM_PROVIDER = "openai";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
@@ -4987,12 +4988,6 @@ function buildFastingScheduleContext() {
 	return {
 		defaultFastType: buildTrainerFastTypeSummary(defaultType),
 		selectedFastType: buildTrainerFastTypeSummary(selectedType),
-		availableFastTypes: FAST_TYPES.map(buildTrainerFastTypeSummary).filter(
-			Boolean,
-		),
-		physiologyNotes: Array.isArray(FASTING_HOURLY.notes)
-			? FASTING_HOURLY.notes.slice(0, 3)
-			: [],
 	};
 }
 
@@ -5046,9 +5041,6 @@ function buildTrainerContinuityContext(
 				) || null,
 		}),
 	);
-	const previousAITrainerNotes = trainerNotes.filter(
-		(note) => note.isAITrainerNote,
-	);
 	const completedFasts = getFastsForTrainer(range).map(
 		buildTrainerCompletedFastSummary,
 	);
@@ -5060,11 +5052,29 @@ function buildTrainerContinuityContext(
 				)
 			: null,
 		notes: trainerNotes.length ? trainerNotes : null,
-		previousAITrainerNotes: previousAITrainerNotes.length
-			? previousAITrainerNotes
-			: null,
 		completedFasts: completedFasts.length ? completedFasts : null,
 	};
+}
+
+function compactAIContext(obj) {
+	function strip(val) {
+		if (val === null) return undefined;
+		if (typeof val === "string" && val === "") return undefined;
+		if (Array.isArray(val)) {
+			const arr = val.map(strip).filter((v) => v !== undefined);
+			return arr.length === 0 ? undefined : arr;
+		}
+		if (typeof val === "object") {
+			const out = {};
+			for (const [k, v] of Object.entries(val)) {
+				const s = strip(v);
+				if (s !== undefined) out[k] = s;
+			}
+			return Object.keys(out).length === 0 ? undefined : out;
+		}
+		return val;
+	}
+	return JSON.stringify(strip(obj) ?? null);
 }
 
 async function callAIChatCompletions({
@@ -5074,6 +5084,7 @@ async function callAIChatCompletions({
 	withReasoningFallback = false,
 	signal = null,
 	providerOverride = null,
+	modelOverride = null,
 }) {
 	const config = getAIProviderSettings(providerOverride);
 	if (!config.apiUrl) {
@@ -5104,8 +5115,12 @@ async function callAIChatCompletions({
 	const usingReasoning =
 		config.reasoningEffort !== "none" &&
 		(config.provider === "byo" || supportsReasoningEffort(config.model));
+	const effectiveModel =
+		modelOverride && config.provider === "openai"
+			? modelOverride
+			: config.model;
 	const requestBody = {
-		model: config.model,
+		model: effectiveModel,
 		messages: [
 			{ role: "system", content: systemPrompt },
 			{ role: "user", content: userPrompt },
@@ -5148,7 +5163,13 @@ async function callAIChatCompletions({
 		);
 		return null;
 	}
-	return await response.json();
+	const data = await response.json();
+	if (data?.usage) {
+		console.log(
+			`[AI] ${purpose} — prompt_tokens: ${data.usage.prompt_tokens}, completion_tokens: ${data.usage.completion_tokens}, total_tokens: ${data.usage.total_tokens}`,
+		);
+	}
+	return data;
 }
 
 async function recommendGoalPlanWithAI() {
@@ -5179,17 +5200,13 @@ async function recommendGoalPlanWithAI() {
 	]
 		.filter(Boolean)
 		.join(" ");
-	const userPayload = JSON.stringify(
-		{
-			profile,
-			instructions: trainerInstructions || null,
-			fastingSchedule: buildFastingScheduleContext(),
-			activeFast: buildTrainerActiveFastContext(),
-			trainerContext,
-		},
-		null,
-		2,
-	);
+	const userPayload = compactAIContext({
+		profile,
+		instructions: trainerInstructions || null,
+		fastingSchedule: buildFastingScheduleContext(),
+		activeFast: buildTrainerActiveFastContext(),
+		trainerContext,
+	});
 
 	try {
 		const data = await callAIChatCompletions({
@@ -5241,9 +5258,10 @@ async function estimateCaloriesWithAI(noteContent) {
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: nutritionPrompt,
-			userPrompt: JSON.stringify({ noteContent: nutritionDetails }, null, 2),
+			userPrompt: compactAIContext({ noteContent: nutritionDetails }),
 			purpose: "AI nutrition estimate",
 			withReasoningFallback: true,
+			modelOverride: OPENAI_EXTRACTION_MODEL,
 		});
 		if (!data) {
 			return null;
@@ -5300,22 +5318,18 @@ async function generateTrainerNoteWithAI(
 	const todayKey = formatDateKey(new Date());
 	const todayCalories = getNoteCaloriesForDateKey(todayKey);
 	const todayNutrition = formatNutritionInlineSummary(todayKey);
-	const userPayload = JSON.stringify(
-		{
-			profile,
-			instructions: trainerInstructions || null,
-			fastingSchedule: buildFastingScheduleContext(),
-			activeFast: buildTrainerActiveFastContext(),
-			today: {
-				dateKey: todayKey,
-				calories: Number.isFinite(todayCalories) ? todayCalories : null,
-				nutritionSummary: todayNutrition || null,
-			},
-			trainerContext,
+	const userPayload = compactAIContext({
+		profile,
+		instructions: trainerInstructions || null,
+		fastingSchedule: buildFastingScheduleContext(),
+		activeFast: buildTrainerActiveFastContext(),
+		today: {
+			dateKey: todayKey,
+			calories: Number.isFinite(todayCalories) ? todayCalories : null,
+			nutritionSummary: todayNutrition || null,
 		},
-		null,
-		2,
-	);
+		trainerContext,
+	});
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: AI_TRAINER_NOTE_PROMPT,
@@ -5409,21 +5423,17 @@ async function generateTrainerQuickQuestionResponse({
 		rangeOverride,
 		providerOverride,
 	);
-	const userPayload = JSON.stringify(
-		{
-			quickQuestion: normalizedQuestion,
-			fastingSchedule: buildFastingScheduleContext(),
-			activeFast: buildTrainerActiveFastContext(),
-			today: {
-				dateKey: formatDateKey(new Date()),
-				nutritionSummary:
-					formatNutritionInlineSummary(formatDateKey(new Date())) || null,
-			},
-			trainerContext,
+	const userPayload = compactAIContext({
+		quickQuestion: normalizedQuestion,
+		fastingSchedule: buildFastingScheduleContext(),
+		activeFast: buildTrainerActiveFastContext(),
+		today: {
+			dateKey: formatDateKey(new Date()),
+			nutritionSummary:
+				formatNutritionInlineSummary(formatDateKey(new Date())) || null,
 		},
-		null,
-		2,
-	);
+		trainerContext,
+	});
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: AI_TRAINER_QUICK_QUESTION_PROMPT,
@@ -5488,35 +5498,31 @@ async function generateAITrainerNoteConversationResponse({
 	}
 	const normalizedConversationMessages =
 		normalizeTrainerConversationMessages(conversation);
-	const userPayload = JSON.stringify(
-		{
-			coreNote: {
-				id: note?.id || null,
-				date: note?.createdAt ? new Date(note.createdAt).toISOString() : null,
-				text: getDisplayNoteText(note) || null,
-			},
-			conversation: normalizedConversationMessages.length
-				? normalizedConversationMessages.map((entry) => ({
-						role: entry.role,
-						content: entry.content,
-					}))
-				: null,
-			userMessage: normalizedMessage,
-			fastingSchedule: buildFastingScheduleContext(),
-			activeFast: buildTrainerActiveFastContext(),
-			today: {
-				dateKey: formatDateKey(new Date()),
-				nutritionSummary:
-					formatNutritionInlineSummary(formatDateKey(new Date())) || null,
-			},
-			trainerContext: buildTrainerContinuityContext(
-				rangeOverride,
-				providerOverride,
-			),
+	const userPayload = compactAIContext({
+		coreNote: {
+			id: note?.id || null,
+			date: note?.createdAt ? new Date(note.createdAt).toISOString() : null,
+			text: getDisplayNoteText(note) || null,
 		},
-		null,
-		2,
-	);
+		conversation: normalizedConversationMessages.length
+			? normalizedConversationMessages.map((entry) => ({
+					role: entry.role,
+					content: entry.content,
+				}))
+			: null,
+		userMessage: normalizedMessage,
+		fastingSchedule: buildFastingScheduleContext(),
+		activeFast: buildTrainerActiveFastContext(),
+		today: {
+			dateKey: formatDateKey(new Date()),
+			nutritionSummary:
+				formatNutritionInlineSummary(formatDateKey(new Date())) || null,
+		},
+		trainerContext: buildTrainerContinuityContext(
+			rangeOverride,
+			providerOverride,
+		),
+	});
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: AI_TRAINER_NOTE_CONVERSATION_PROMPT,
