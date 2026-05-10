@@ -4570,7 +4570,7 @@ function normalizeTrainerConversationMessages(messages) {
 			role: normalizeTrainerConversationMessageRole(message?.role),
 			content: normalizeSingleParagraph(
 				message?.content,
-				TRAINER_QUICK_RESPONSE_MAX_CHARS,
+				TRAINER_NOTE_CONVERSATION_MAX_CHARS,
 			),
 		}))
 		.filter((message) => Boolean(message.content));
@@ -4591,7 +4591,10 @@ function parseTrainerConversationMessages(value) {
 	return [
 		{
 			role: "user",
-			content: normalizeSingleParagraph(raw, TRAINER_QUICK_RESPONSE_MAX_CHARS),
+			content: normalizeSingleParagraph(
+				raw,
+				TRAINER_NOTE_CONVERSATION_MAX_CHARS,
+			),
 		},
 	].filter((message) => Boolean(message.content));
 }
@@ -7903,7 +7906,7 @@ function buildNoteCard(note) {
 		response.className = "note-trainer-response";
 		const label = document.createElement("div");
 		label.className = "note-trainer-response-label";
-		label.textContent = `Conversation · ${trainerConversation.length} ${pluralizeWord(trainerConversation.length, "message")}`;
+		label.textContent = `Conversation · ${trainerConversation.length} ${pluralizeWord(trainerConversation.length, "message", "messages")}`;
 		const text = document.createElement("div");
 		text.className = "note-trainer-response-text";
 		text.textContent = `${latestMessage.role === "trainer" ? "Trainer" : "You"}: ${latestMessage.content}`;
