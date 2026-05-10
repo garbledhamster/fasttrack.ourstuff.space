@@ -162,6 +162,72 @@ body.bg-slate-950 {
 	gap: 8px;
 }
 
+.note-card--ai {
+	border-color: color-mix(in srgb, var(--primary-color) 58%, var(--border-color));
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--primary-color) 16%, var(--surface-color)),
+		color-mix(in srgb, var(--secondary-color) 12%, var(--surface-color))
+	);
+	box-shadow: inset 3px 0 0 color-mix(in srgb, var(--primary-color) 75%, white);
+}
+
+.note-markdown {
+	color: var(--text-color);
+	line-height: 1.45;
+}
+
+.note-markdown > * + * {
+	margin-top: 0.55rem;
+}
+
+.note-markdown ul,
+.note-markdown ol {
+	padding-left: 1.15rem;
+}
+
+.note-markdown ul {
+	list-style: disc;
+}
+
+.note-markdown ol {
+	list-style: decimal;
+}
+
+.note-markdown h3,
+.note-markdown h4,
+.note-markdown h5 {
+	color: var(--text-color);
+	font-size: 0.9rem;
+	font-weight: 650;
+}
+
+.note-markdown a {
+	color: var(--primary-color);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.note-markdown code {
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--surface-muted-color) 70%, transparent);
+	padding: 1px 5px;
+	font-size: 0.9em;
+}
+
+.note-markdown blockquote {
+	border-left: 3px solid color-mix(in srgb, var(--primary-color) 55%, transparent);
+	padding-left: 0.75rem;
+	color: var(--text-muted-color);
+}
+
+.note-editor-markdown-preview {
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	background: var(--surface-color);
+	padding: 12px;
+}
+
 .note-calorie-entry {
 	display: flex;
 	gap: 12px;
@@ -295,6 +361,32 @@ body.bg-slate-950 {
 	border-color: var(--border-muted-color);
 	background: color-mix(in srgb, var(--surface-muted-color) 60%, transparent);
 	color: var(--text-muted-color);
+}
+
+.note-badge.is-ai {
+	border-color: color-mix(in srgb, var(--primary-color) 60%, transparent);
+	background: color-mix(in srgb, var(--primary-color) 18%, transparent);
+	color: color-mix(in srgb, var(--primary-color) 60%, white);
+}
+
+.note-readonly-banner {
+	border: 1px solid color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--primary-color) 12%, var(--surface-color));
+	color: color-mix(in srgb, var(--primary-color) 55%, white);
+	padding: 8px 10px;
+	font-size: 12px;
+}
+
+.note-editor-modal.is-read-only textarea,
+.note-editor-modal.is-read-only input {
+	cursor: default;
+	opacity: 0.82;
+}
+
+.note-editor-modal.is-read-only .ai-estimate-btn {
+	cursor: not-allowed;
+	opacity: 0.45;
 }
 
 .note-meta {

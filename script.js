@@ -377,6 +377,8 @@ let editingNoteOpenedAt = null;
 let editingNoteInitialText = "";
 let editingNoteInitialCalories = "";
 let editingNoteInitialNutrition = "";
+let editingNoteMetadata = null;
+let editingNoteReadOnly = false;
 let editingHistoryId = null;
 
 let navHoldTimer = null;
@@ -751,6 +753,7 @@ async function normalizeNoteSnapshot(snap) {
 		dateKey: typeof data.dateKey === "string" ? data.dateKey : "",
 		goalContext: normalizeGoalContext(data.goalContext),
 		fastContext: normalizeFastContext(data.fastContext, normalizedCreatedAt),
+		metadata: normalizeNoteMetadata(data.metadata, text),
 		calorieEntry,
 	};
 }
@@ -895,6 +898,65 @@ function normalizeFastContext(fastContext, createdAt) {
 	};
 }
 
+function normalizeNoteTags(tags) {
+	if (!Array.isArray(tags)) return [];
+	return [...new Set(tags.map((tag) => String(tag || "").trim()).filter(Boolean))];
+}
+
+function normalizeNoteMetadata(metadata, text = "") {
+	const raw = metadata && typeof metadata === "object" ? metadata : {};
+	const source = String(raw.source || "").trim();
+	const marker = String(raw.marker || "").trim();
+	const legacyAITrainerNote = String(text || "")
+		.trim()
+		.startsWith(AI_TRAINER_NOTE_TITLE);
+	const isAITrainer =
+		source === AI_TRAINER_NOTE_SOURCE ||
+		marker === AI_TRAINER_NOTE_MARKER ||
+		raw.type === "trainer_note" ||
+		raw.isAINote === true ||
+		legacyAITrainerNote;
+
+	if (isAITrainer) {
+		return {
+			source: AI_TRAINER_NOTE_SOURCE,
+			type: "trainer_note",
+			isAINote: true,
+			readOnly: true,
+			contentFormat: "markdown",
+			marker: AI_TRAINER_NOTE_MARKER,
+			tags: [...AI_TRAINER_NOTE_TAGS],
+		};
+	}
+
+	return {
+		source: source || "user",
+		type: typeof raw.type === "string" && raw.type.trim() ? raw.type.trim() : "journal",
+		isAINote: raw.isAINote === true,
+		readOnly: raw.readOnly === true,
+		contentFormat: raw.contentFormat === "markdown" ? "markdown" : "plain",
+		marker: marker || null,
+		tags: normalizeNoteTags(raw.tags),
+	};
+}
+
+function isAITrainerNote(note) {
+	return normalizeNoteMetadata(note?.metadata, note?.text).source === AI_TRAINER_NOTE_SOURCE;
+}
+
+function isReadOnlyNote(note) {
+	const metadata = normalizeNoteMetadata(note?.metadata, note?.text);
+	return metadata.readOnly === true || metadata.source === AI_TRAINER_NOTE_SOURCE;
+}
+
+function getDisplayNoteText(note) {
+	const text = String(note?.text || "");
+	if (!isAITrainerNote(note)) return text;
+	const trimmed = text.trim();
+	if (!trimmed.startsWith(AI_TRAINER_NOTE_TITLE)) return text;
+	return trimmed.slice(AI_TRAINER_NOTE_TITLE.length).replace(/^\s+/, "");
+}
+
 function buildInactiveFastContext() {
 	return {
 		wasActive: false,
@@ -968,23 +1030,26 @@ function buildGoalContext() {
 
 async function buildNotePayload({
 	text,
-	dateKey: _dateKey,
+	dateKey,
 	fastContext,
 	goalContext,
 	calorieEntry,
+	metadata,
 } = {}) {
 	const createdAt = Date.now();
+	const noteText = (text || "").trim();
 	const payload = await encryptNotePayload({
-		text: (text || "").trim(),
+		text: noteText,
 		calorieEntry: calorieEntry ?? null,
 	});
 	return {
 		payload,
 		createdAt,
 		updatedAt: createdAt,
-		dateKey: formatDateKey(new Date(createdAt)),
+		dateKey: typeof dateKey === "string" ? dateKey : formatDateKey(new Date(createdAt)),
 		goalContext: goalContext ?? buildGoalContext(),
 		fastContext: fastContext ?? buildFastContextAt(createdAt),
+		metadata: normalizeNoteMetadata(metadata, noteText),
 	};
 }
 
@@ -995,6 +1060,7 @@ async function buildNoteUpdatePayload({
 	createdAt,
 	goalContext,
 	calorieEntry,
+	metadata,
 } = {}) {
 	const payload = { updatedAt: Date.now() };
 	if (typeof text === "string" || calorieEntry !== undefined) {
@@ -1053,10 +1119,22 @@ async function buildNoteUpdatePayload({
 		}
 	}
 	if (typeof createdAt === "number") payload.createdAt = createdAt;
+	if (metadata !== undefined) {
+		payload.metadata = normalizeNoteMetadata(
+			metadata,
+			typeof text === "string" ? text : "",
+		);
+	}
 	return payload;
 }
 
-async function createNote({ text, dateKey, fastContext, calorieEntry } = {}) {
+async function createNote({
+	text,
+	dateKey,
+	fastContext,
+	calorieEntry,
+	metadata,
+} = {}) {
 	const user = auth.currentUser;
 	if (!user) return null;
 	const payload = await buildNotePayload({
@@ -1064,6 +1142,7 @@ async function createNote({ text, dateKey, fastContext, calorieEntry } = {}) {
 		dateKey,
 		fastContext,
 		calorieEntry,
+		metadata,
 	});
 	try {
 		const docRef = await addDoc(getNotesCollectionRef(user.uid), payload);
@@ -1075,7 +1154,7 @@ async function createNote({ text, dateKey, fastContext, calorieEntry } = {}) {
 
 async function updateNote(
 	noteId,
-	{ text, dateKey, fastContext, createdAt, calorieEntry } = {},
+	{ text, dateKey, fastContext, createdAt, calorieEntry, metadata } = {},
 ) {
 	const user = auth.currentUser;
 	if (!user || !noteId) return;
@@ -1085,6 +1164,7 @@ async function updateNote(
 		fastContext,
 		createdAt,
 		calorieEntry,
+		metadata,
 	});
 	try {
 		await setDoc(getNoteDocRef(user.uid, noteId), payload, { merge: true });
@@ -1112,8 +1192,10 @@ function openNoteEditor(note = null) {
 	editingNoteCreatedAt = note?.createdAt ?? null;
 	editingNoteOpenedAt = Date.now();
 
-	const noteText = note?.text || "";
+	const noteText = getDisplayNoteText(note);
 	const legacyFoodNote = note?.calorieEntry?.foodNote || "";
+	editingNoteMetadata = normalizeNoteMetadata(note?.metadata, note?.text || "");
+	editingNoteReadOnly = isReadOnlyNote(note);
 	$("note-editor-content").value = noteText || legacyFoodNote;
 	$("note-editor-calories").value = Number.isFinite(
 		note?.calorieEntry?.calories,
@@ -1126,6 +1208,7 @@ function openNoteEditor(note = null) {
 	editingNoteInitialNutrition = serializeNoteEditorNutritionFields();
 	updateNoteEditorMeta();
 	$("note-editor-delete").classList.toggle("hidden", !editingNoteId);
+	applyNoteEditorReadOnlyState(editingNoteReadOnly);
 	modal.classList.remove("hidden");
 	requestAnimationFrame(() => modal.classList.add("is-open"));
 }
@@ -1150,6 +1233,35 @@ function serializeNoteEditorNutritionFields() {
 	return NOTE_EDITOR_NUTRIENT_FIELDS.map(
 		({ id }) => `${id}:${$(id)?.value?.trim() || ""}`,
 	).join("|");
+}
+
+function applyNoteEditorReadOnlyState(readOnly) {
+	const modal = $("note-editor-modal");
+	if (modal) modal.classList.toggle("is-read-only", Boolean(readOnly));
+	const content = $("note-editor-content");
+	if (content) content.readOnly = Boolean(readOnly);
+	const markdownPreview = $("note-editor-markdown-preview");
+	const showMarkdownPreview =
+		Boolean(readOnly) && editingNoteMetadata?.contentFormat === "markdown";
+	if (markdownPreview) {
+		markdownPreview.innerHTML = showMarkdownPreview
+			? renderMarkdownToHtml(content?.value || "")
+			: "";
+		markdownPreview.classList.toggle("hidden", !showMarkdownPreview);
+	}
+	if (content) content.classList.toggle("hidden", showMarkdownPreview);
+	["note-editor-calories", ...NOTE_EDITOR_NUTRIENT_FIELDS.map(({ id }) => id)].forEach(
+		(id) => {
+			const input = $(id);
+			if (input) input.readOnly = Boolean(readOnly);
+		},
+	);
+	const estimateButton = $("note-editor-ai-estimate");
+	if (estimateButton) estimateButton.disabled = Boolean(readOnly);
+	const saveButton = $("note-editor-save");
+	if (saveButton) saveButton.classList.toggle("hidden", Boolean(readOnly));
+	const readOnlyNotice = $("note-editor-readonly");
+	if (readOnlyNotice) readOnlyNotice.classList.toggle("hidden", !readOnly);
 }
 
 function hasNoteEditorNutritionContent() {
@@ -1285,16 +1397,22 @@ function updateNoteEditorMeta() {
 	const isActive = Boolean(editingNoteContext?.wasActive);
 	const elapsedMsAtNote = editingNoteContext?.elapsedMsAtNote;
 	const hasElapsed = isActive && typeof elapsedMsAtNote === "number";
-	if (isActive) {
+	if (editingNoteMetadata?.source === AI_TRAINER_NOTE_SOURCE) {
+		badge.textContent = "AI trainer note";
+		badge.classList.remove("is-muted");
+		badge.classList.add("is-ai");
+	} else if (isActive) {
 		const typeLabel = editingNoteContext?.fastTypeLabel || "fast";
 		const elapsedLabel = hasElapsed
 			? ` • ${formatElapsedShort(elapsedMsAtNote)} in`
 			: "";
 		badge.textContent = `Active ${typeLabel}${elapsedLabel}`;
 		badge.classList.remove("is-muted");
+		badge.classList.remove("is-ai");
 	} else {
 		badge.textContent = "No active fast";
 		badge.classList.add("is-muted");
+		badge.classList.remove("is-ai");
 	}
 }
 
@@ -1317,9 +1435,16 @@ function closeNoteEditor() {
 	editingNoteInitialText = "";
 	editingNoteInitialCalories = "";
 	editingNoteInitialNutrition = "";
+	editingNoteMetadata = null;
+	editingNoteReadOnly = false;
+	applyNoteEditorReadOnlyState(false);
 }
 
 async function persistNoteEditor({ closeOnSave = true } = {}) {
+	if (editingNoteReadOnly) {
+		showToast("AI trainer notes are read-only");
+		return false;
+	}
 	const text = $("note-editor-content").value.trim();
 	const calorieEntry = buildCalorieEntryFromEditor();
 	if (!text && !calorieEntry) {
@@ -1334,6 +1459,7 @@ async function persistNoteEditor({ closeOnSave = true } = {}) {
 				dateKey: editingNoteDateKey,
 				fastContext: editingNoteContext,
 				createdAt: editingNoteCreatedAt,
+				metadata: editingNoteMetadata,
 			});
 		} else {
 			await createNote({
@@ -1341,6 +1467,7 @@ async function persistNoteEditor({ closeOnSave = true } = {}) {
 				calorieEntry,
 				dateKey: editingNoteDateKey,
 				fastContext: editingNoteContext,
+				metadata: editingNoteMetadata,
 			});
 		}
 	} catch (err) {
@@ -3908,14 +4035,24 @@ const OPENAI_NOTES_RANGE_LABELS = [
 	"All notes",
 ];
 const AI_TRAINER_NOTE_PROMPT = [
-	"You are a practical, supportive personal trainer and nutrition coach.",
-	"Write a concise trainer summary note with constructive personal feedback.",
-	"Focus on actionable next steps for nutrition, fasting routine, exercise, and recovery.",
+	"You are the user's expert trainer and nutrition coach: practical, supportive, observant, and forward-looking.",
+	"Write a concise markdown trainer note with constructive personal feedback.",
+	"Use previous AI trainer notes as continuity, comparing what changed since earlier recommendations and calling out meaningful differences.",
+	"Focus on actionable next steps for nutrition, fasting routine, exercise, and recovery, while helping the user think through tradeoffs and next goals.",
+	"Use the current fast status, selected fasting schedule, completed fasts, nutrition context, and journal notes together.",
 	"Respect user instructions, dietary needs, injuries, and limitations.",
-	"Keep output light and actionable: max 4 short bullet points, no markdown headings, no fluff.",
+	"Keep output light and actionable: max 4 short markdown bullets or short sections, no fluff.",
 	"If information is missing, give safe, realistic suggestions and mention uncertainty briefly.",
 ].join(" ");
 const AI_TRAINER_NOTE_TITLE = "AI Trainer Note";
+const AI_TRAINER_NOTE_SOURCE = "ai_trainer";
+const AI_TRAINER_NOTE_MARKER = "ai:trainer-note";
+const AI_TRAINER_NOTE_TAGS = Object.freeze([
+	"ai",
+	"trainer",
+	"ai_trainer",
+	"trainer_note",
+]);
 
 function normalizeOpenAINotesRange(value) {
 	const n = Number(value);
@@ -3923,34 +4060,57 @@ function normalizeOpenAINotesRange(value) {
 	return Math.min(Math.round(n), OPENAI_NOTES_RANGE_MAX);
 }
 
-function getNotesForTrainer() {
+function getTrainerContextRange() {
 	const provider = normalizeLLMProvider(state.settings.llmProvider);
-	const range =
-		provider === "byo"
-			? normalizeOpenAINotesRange(state.settings.byoLlm?.notesRange)
-			: normalizeOpenAINotesRange(state.settings.openaiNotesRange);
+	return provider === "byo"
+		? normalizeOpenAINotesRange(state.settings.byoLlm?.notesRange)
+		: normalizeOpenAINotesRange(state.settings.openaiNotesRange);
+}
+
+function getTrainerRangeCutoff(range, now = Date.now()) {
+	if (range === 2) {
+		const d = new Date();
+		return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+	}
+	if (range === 3) return now - 7 * 24 * 60 * 60 * 1000;
+	if (range === 4) {
+		const d = new Date();
+		return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+	}
+	if (range === 5) {
+		const d = new Date();
+		return new Date(d.getFullYear(), 0, 1).getTime();
+	}
+	return null;
+}
+
+function getNotesForTrainer() {
+	const range = getTrainerContextRange();
 	if (range === 0 || !notes.length) return [];
 	const now = Date.now();
 	const sorted = [...notes].sort(
 		(a, b) => (b.createdAt || 0) - (a.createdAt || 0),
 	);
 	if (range === 1) return sorted.slice(0, 1);
-	let cutoff;
-	if (range === 2) {
-		const d = new Date();
-		cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-	} else if (range === 3) {
-		cutoff = now - 7 * 24 * 60 * 60 * 1000;
-	} else if (range === 4) {
-		const d = new Date();
-		cutoff = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-	} else if (range === 5) {
-		const d = new Date();
-		cutoff = new Date(d.getFullYear(), 0, 1).getTime();
-	} else {
-		return sorted;
-	}
+	if (range === OPENAI_NOTES_RANGE_MAX) return sorted;
+	const cutoff = getTrainerRangeCutoff(range, now);
+	if (cutoff === null) return sorted;
 	return sorted.filter((n) => (n.createdAt || 0) >= cutoff);
+}
+
+function getFastsForTrainer() {
+	const range = getTrainerContextRange();
+	if (range === 0 || !state.history.length) return [];
+	const sorted = [...state.history].sort(
+		(a, b) => (b.endTimestamp || b.startTimestamp || 0) - (a.endTimestamp || a.startTimestamp || 0),
+	);
+	if (range === 1) return sorted.slice(0, 1);
+	if (range === OPENAI_NOTES_RANGE_MAX) return sorted;
+	const cutoff = getTrainerRangeCutoff(range);
+	if (cutoff === null) return sorted;
+	return sorted.filter(
+		(fast) => (fast.endTimestamp || fast.startTimestamp || 0) >= cutoff,
+	);
 }
 
 function sanitizeBearerToken(value) {
@@ -4168,6 +4328,134 @@ function buildGoalRecommendationProfile() {
 	};
 }
 
+function roundTrainerHours(value) {
+	if (!Number.isFinite(value)) return null;
+	return Math.round(value * 10) / 10;
+}
+
+function buildTrainerFastTypeSummary(type) {
+	if (!type) return null;
+	return {
+		id: type.id,
+		label: type.label,
+		durationHours: type.durationHours,
+		useCase: type.useCase || null,
+		milestoneHours: Array.isArray(type.milestoneHours)
+			? type.milestoneHours
+			: [],
+	};
+}
+
+function buildTrainerActiveFastContext() {
+	const fastContext = buildFastContext();
+	const activeFast = state.activeFast;
+	const type = activeFast?.typeId ? getTypeById(activeFast.typeId) : null;
+	const now = Date.now();
+	if (!activeFast) {
+		return {
+			isCurrentlyFasting: false,
+			context: fastContext,
+		};
+	}
+	const plannedDurationHours =
+		activeFast.plannedDurationHours ?? type?.durationHours ?? null;
+	const elapsedHours =
+		typeof activeFast.startTimestamp === "number"
+			? (now - activeFast.startTimestamp) / 3600000
+			: null;
+	const remainingHours =
+		Number.isFinite(plannedDurationHours) && Number.isFinite(elapsedHours)
+			? plannedDurationHours - elapsedHours
+			: null;
+	const phaseHour = Number.isFinite(elapsedHours) ? Math.floor(elapsedHours) : null;
+	const phase = phaseHour !== null ? getHourlyEntry(phaseHour) : null;
+	return {
+		isCurrentlyFasting: true,
+		context: fastContext,
+		startedAt: activeFast.startTimestamp
+			? new Date(activeFast.startTimestamp).toISOString()
+			: null,
+		plannedEndAt: activeFast.endTimestamp
+			? new Date(activeFast.endTimestamp).toISOString()
+			: null,
+		fastType: buildTrainerFastTypeSummary(type),
+		elapsedHours: roundTrainerHours(elapsedHours),
+		remainingHours: roundTrainerHours(remainingHours),
+		progressPercent:
+			Number.isFinite(elapsedHours) &&
+			Number.isFinite(plannedDurationHours) &&
+			plannedDurationHours > 0
+				? Math.round((elapsedHours / plannedDurationHours) * 100)
+				: null,
+		currentPhase: phase
+			? {
+					hour: phase.hour,
+					label: phase.label,
+					detail: getHourlyActionDetail(phase.hour) || null,
+				}
+			: null,
+	};
+}
+
+function buildFastingScheduleContext() {
+	const selectedType = getTypeById(selectedFastTypeId);
+	const defaultType = getTypeById(state.settings.defaultFastTypeId);
+	return {
+		defaultFastType: buildTrainerFastTypeSummary(defaultType),
+		selectedFastType: buildTrainerFastTypeSummary(selectedType),
+		availableFastTypes: FAST_TYPES.map(buildTrainerFastTypeSummary).filter(Boolean),
+		physiologyNotes: Array.isArray(FASTING_HOURLY.notes)
+			? FASTING_HOURLY.notes.slice(0, 3)
+			: [],
+	};
+}
+
+function buildTrainerCompletedFastSummary(entry) {
+	const type = getTypeById(entry?.typeId);
+	const startTimestamp = Number(entry?.startTimestamp);
+	const endTimestamp = Number(entry?.endTimestamp);
+	const durationHours = resolveDurationHours(entry, startTimestamp, endTimestamp);
+	const targetDurationHours = type?.durationHours ?? null;
+	return {
+		id: entry?.id || null,
+		typeId: entry?.typeId || null,
+		typeLabel: type?.label || entry?.typeLabel || "Custom",
+		startedAt: Number.isFinite(startTimestamp)
+			? new Date(startTimestamp).toISOString()
+			: null,
+		endedAt: Number.isFinite(endTimestamp)
+			? new Date(endTimestamp).toISOString()
+			: null,
+		durationHours: roundTrainerHours(durationHours),
+		targetDurationHours,
+		metPlannedDuration:
+			Number.isFinite(durationHours) && Number.isFinite(targetDurationHours)
+				? durationHours >= targetDurationHours
+				: null,
+	};
+}
+
+function buildTrainerContinuityContext() {
+	const trainerNotes = getNotesForTrainer().map((note) => ({
+		date: note.createdAt ? new Date(note.createdAt).toISOString() : null,
+		source: note.metadata?.source || "user",
+		isAITrainerNote: isAITrainerNote(note),
+		text: getDisplayNoteText(note) || null,
+	}));
+	const previousAITrainerNotes = trainerNotes.filter(
+		(note) => note.isAITrainerNote,
+	);
+	const completedFasts = getFastsForTrainer().map(buildTrainerCompletedFastSummary);
+	return {
+		rangeLabel: OPENAI_NOTES_RANGE_LABELS[getTrainerContextRange()],
+		notes: trainerNotes.length ? trainerNotes : null,
+		previousAITrainerNotes: previousAITrainerNotes.length
+			? previousAITrainerNotes
+			: null,
+		completedFasts: completedFasts.length ? completedFasts : null,
+	};
+}
+
 async function callAIChatCompletions({
 	systemPrompt,
 	userPrompt,
@@ -4259,17 +4547,15 @@ async function recommendGoalPlanWithAI() {
 	).trim();
 
 	const profile = buildGoalRecommendationProfile();
-	const trainerNotes = getNotesForTrainer().map((n) => ({
-		date: n.createdAt ? new Date(n.createdAt).toISOString() : null,
-		text: n.text || null,
-	}));
+	const trainerContext = buildTrainerContinuityContext();
 	const recommendationPrompt = [
 		"You are a personal trainer and nutrition coach.",
 		"Recommend a realistic calorie and daily nutrient plan tailored to the user profile.",
-		"Respect the user instructions and account for dietary needs, injuries, and limitations.",
-		trainerNotes.length
+		"Respect the user instructions and account for dietary needs, injuries, limitations, fasting schedule, and completed fasting history.",
+		trainerContext.notes || trainerContext.completedFasts
 			? "The user has shared journal notes — use them to refine your recommendations."
 			: "",
+		"Use trainerContext.completedFasts and activeFast when present to account for completed and current fasts.",
 		"Return ONLY valid JSON in this exact shape:",
 		'{"dailyTarget": number|null, "goal": "lose"|"maintain"|"gain"|null, "nutrientGoals": {"macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}}.',
 		"Use grams for macros, milligrams for micros and vitaminC/vitaminB6, and micrograms for vitaminA/vitaminD/vitaminB12.",
@@ -4281,7 +4567,9 @@ async function recommendGoalPlanWithAI() {
 		{
 			profile,
 			instructions: trainerInstructions || null,
-			notes: trainerNotes.length ? trainerNotes : null,
+			fastingSchedule: buildFastingScheduleContext(),
+			activeFast: buildTrainerActiveFastContext(),
+			trainerContext,
 		},
 		null,
 		2,
@@ -4374,14 +4662,15 @@ async function estimateCaloriesWithAI(noteText) {
 }
 
 async function generateTrainerNoteWithAI() {
+	const provider = normalizeLLMProvider(state.settings.llmProvider);
+	const byoLlm = normalizeByoLlmSettings(state.settings.byoLlm);
 	const trainerInstructions = String(
-		state.settings.openaiTrainerInstructions || "",
+		provider === "byo"
+			? byoLlm.trainerInstructions
+			: state.settings.openaiTrainerInstructions || "",
 	).trim();
 	const profile = buildGoalRecommendationProfile();
-	const trainerNotes = getNotesForTrainer().map((n) => ({
-		date: n.createdAt ? new Date(n.createdAt).toISOString() : null,
-		text: n.text || null,
-	}));
+	const trainerContext = buildTrainerContinuityContext();
 	const todayKey = formatDateKey(new Date());
 	const todayCalories = getNoteCaloriesForDateKey(todayKey);
 	const todayNutrition = formatNutritionInlineSummary(todayKey);
@@ -4389,13 +4678,14 @@ async function generateTrainerNoteWithAI() {
 		{
 			profile,
 			instructions: trainerInstructions || null,
-			activeFast: buildFastContext(),
+			fastingSchedule: buildFastingScheduleContext(),
+			activeFast: buildTrainerActiveFastContext(),
 			today: {
 				dateKey: todayKey,
 				calories: Number.isFinite(todayCalories) ? todayCalories : null,
 				nutritionSummary: todayNutrition || null,
 			},
-			notes: trainerNotes.length ? trainerNotes : null,
+			trainerContext,
 		},
 		null,
 		2,
@@ -4436,9 +4726,18 @@ async function addAITrainerNote() {
 	const trainerText = await generateTrainerNoteWithAI();
 	if (!trainerText) return false;
 	const noteId = await createNote({
-		text: `${AI_TRAINER_NOTE_TITLE}\n${trainerText}`,
+		text: trainerText,
 		dateKey: formatDateKey(new Date()),
 		fastContext: buildFastContext(),
+		metadata: {
+			source: AI_TRAINER_NOTE_SOURCE,
+			type: "trainer_note",
+			isAINote: true,
+			readOnly: true,
+			contentFormat: "markdown",
+			marker: AI_TRAINER_NOTE_MARKER,
+			tags: [...AI_TRAINER_NOTE_TAGS],
+		},
 	});
 	if (!noteId) {
 		showToast("Failed to save AI trainer note");
@@ -6253,6 +6552,118 @@ function renderNotesTab() {
 	});
 }
 
+function escapeHtml(value) {
+	return String(value ?? "")
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#39;");
+}
+
+function sanitizeMarkdownHref(value) {
+	const href = String(value || "").trim();
+	if (!href) return "";
+	if (href.startsWith("#") || href.startsWith("/")) return href;
+	try {
+		const url = new URL(href, window.location.origin);
+		if (["http:", "https:", "mailto:", "tel:"].includes(url.protocol)) {
+			return href;
+		}
+	} catch {}
+	return "";
+}
+
+function renderMarkdownInline(value) {
+	let html = escapeHtml(value);
+	html = html.replace(
+		/\[([^\]]+)\]\(([^)\s]+)\)/g,
+		(_match, label, href) => {
+			const safeHref = sanitizeMarkdownHref(href);
+			if (!safeHref) return label;
+			return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+		},
+	);
+	html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+	html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+	html = html.replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+	return html;
+}
+
+function renderMarkdownToHtml(markdown) {
+	const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+	const html = [];
+	let paragraph = [];
+	let listType = null;
+
+	const flushParagraph = () => {
+		if (!paragraph.length) return;
+		html.push(`<p>${paragraph.map(renderMarkdownInline).join("<br>")}</p>`);
+		paragraph = [];
+	};
+	const flushList = () => {
+		if (!listType) return;
+		html.push(`</${listType}>`);
+		listType = null;
+	};
+	const ensureList = (nextType) => {
+		flushParagraph();
+		if (listType === nextType) return;
+		flushList();
+		html.push(`<${nextType}>`);
+		listType = nextType;
+	};
+
+	lines.forEach((line) => {
+		const trimmed = line.trim();
+		if (!trimmed) {
+			flushParagraph();
+			flushList();
+			return;
+		}
+		const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+		if (heading) {
+			flushParagraph();
+			flushList();
+			const level = heading[1].length + 2;
+			html.push(`<h${level}>${renderMarkdownInline(heading[2])}</h${level}>`);
+			return;
+		}
+		const unordered = trimmed.match(/^[-*]\s+(.+)$/);
+		if (unordered) {
+			ensureList("ul");
+			html.push(`<li>${renderMarkdownInline(unordered[1])}</li>`);
+			return;
+		}
+		const ordered = trimmed.match(/^\d+\.\s+(.+)$/);
+		if (ordered) {
+			ensureList("ol");
+			html.push(`<li>${renderMarkdownInline(ordered[1])}</li>`);
+			return;
+		}
+		const quote = trimmed.match(/^>\s+(.+)$/);
+		if (quote) {
+			flushParagraph();
+			flushList();
+			html.push(`<blockquote>${renderMarkdownInline(quote[1])}</blockquote>`);
+			return;
+		}
+		flushList();
+		paragraph.push(trimmed);
+	});
+
+	flushParagraph();
+	flushList();
+	return html.join("");
+}
+
+function buildMarkdownNoteContent(text) {
+	const content = document.createElement("div");
+	content.className = "note-markdown text-sm md:text-xs";
+	content.innerHTML = renderMarkdownToHtml(text);
+	return content;
+}
+
 function buildNoteNutritionChips(calorieEntry) {
 	const chipSpecs = [
 		["Protein", calorieEntry?.macros?.protein, "g"],
@@ -6283,7 +6694,12 @@ function buildNoteNutritionChips(calorieEntry) {
 function buildNoteCard(note) {
 	const card = document.createElement("button");
 	card.type = "button";
-	card.className = "note-card";
+	const isAITrainer = isAITrainerNote(note);
+	const displayText = getDisplayNoteText(note);
+	card.className = isAITrainer ? "note-card note-card--ai" : "note-card";
+	card.dataset.noteSource = note.metadata?.source || "user";
+	if (note.metadata?.marker) card.dataset.noteMarker = note.metadata.marker;
+	if (isReadOnlyNote(note)) card.dataset.readonly = "true";
 	card.addEventListener("click", () => openNoteEditor(note));
 
 	const hasCalorieEntry = Boolean(note.calorieEntry);
@@ -6313,7 +6729,7 @@ function buildNoteCard(note) {
 
 		const entryText = document.createElement("div");
 		entryText.className = "note-calorie-text";
-		entryText.textContent = note.text || "Nutrition entry";
+		entryText.textContent = displayText || "Nutrition entry";
 		detailWrap.appendChild(entryText);
 
 		const nutritionRow = document.createElement("div");
@@ -6328,10 +6744,14 @@ function buildNoteCard(note) {
 		entry.appendChild(detailWrap);
 		card.appendChild(entry);
 	} else {
-		const text = document.createElement("div");
-		text.className = "text-default whitespace-pre-wrap text-sm md:text-xs";
-		text.textContent = note.text || "Untitled note";
-		card.appendChild(text);
+		if (isAITrainer || note.metadata?.contentFormat === "markdown") {
+			card.appendChild(buildMarkdownNoteContent(displayText || "Untitled note"));
+		} else {
+			const text = document.createElement("div");
+			text.className = "text-default whitespace-pre-wrap text-sm md:text-xs";
+			text.textContent = displayText || "Untitled note";
+			card.appendChild(text);
+		}
 	}
 
 	const meta = document.createElement("div");
@@ -6345,7 +6765,10 @@ function buildNoteCard(note) {
 	const isActive = Boolean(note.fastContext?.wasActive);
 	const elapsedMsAtNote = note.fastContext?.elapsedMsAtNote;
 	const hasElapsed = isActive && typeof elapsedMsAtNote === "number";
-	if (isActive) {
+	if (isAITrainer) {
+		badge.textContent = "AI trainer note";
+		badge.classList.add("is-ai");
+	} else if (isActive) {
 		const typeLabel = note.fastContext?.fastTypeLabel || "fast";
 		const elapsedLabel = hasElapsed
 			? ` • ${formatElapsedShort(elapsedMsAtNote)} in`
