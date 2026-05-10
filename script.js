@@ -386,6 +386,7 @@ let editingNoteInitialNutrition = "";
 let editingNoteInitialTrainerResponse = "";
 let editingNoteMetadata = null;
 let editingNoteReadOnly = false;
+let noteEditorTrainerConversationAbortController = null;
 let editingHistoryId = null;
 
 let navHoldTimer = null;
@@ -1263,8 +1264,11 @@ function openNoteEditor(note = null) {
 	editingNoteReadOnly = isReadOnlyNote(note);
 	$("note-editor-content").value = noteText || "";
 	const trainerResponseInput = $("note-editor-trainer-response");
+	const isTrainerNote = editingNoteMetadata?.source === AI_TRAINER_NOTE_SOURCE;
 	if (trainerResponseInput) {
-		trainerResponseInput.value = note?.trainerResponse || "";
+		trainerResponseInput.value = isTrainerNote
+			? ""
+			: note?.trainerResponse || "";
 	}
 	$("note-editor-calories").value = Number.isFinite(
 		note?.calorieEntry?.calories,
@@ -1277,6 +1281,7 @@ function openNoteEditor(note = null) {
 	editingNoteInitialNutrition = serializeNoteEditorNutritionFields();
 	editingNoteInitialTrainerResponse = trainerResponseInput?.value.trim() || "";
 	updateNoteEditorMeta();
+	renderNoteEditorTrainerConversation();
 	$("note-editor-delete").classList.toggle("hidden", !editingNoteId);
 	applyNoteEditorReadOnlyState(editingNoteReadOnly);
 	modal.classList.remove("hidden");
@@ -1340,13 +1345,21 @@ function applyNoteEditorReadOnlyState(readOnly) {
 	}
 	const responseInput = $("note-editor-trainer-response");
 	if (responseInput) responseInput.readOnly = !isTrainerNote;
+	const trainerActions = $("note-editor-trainer-actions");
+	if (trainerActions) trainerActions.classList.toggle("hidden", !isTrainerNote);
 	const saveButton = $("note-editor-save");
 	if (saveButton) {
-		saveButton.classList.toggle("hidden", Boolean(readOnly) && !isTrainerNote);
-		saveButton.textContent = isTrainerNote ? "Save response" : "Save note";
+		saveButton.classList.toggle("hidden", Boolean(readOnly) || isTrainerNote);
+		saveButton.textContent = "Save note";
 	}
 	const readOnlyNotice = $("note-editor-readonly");
-	if (readOnlyNotice) readOnlyNotice.classList.toggle("hidden", !readOnly);
+	if (readOnlyNotice) {
+		readOnlyNotice.textContent = isTrainerNote
+			? "Core trainer note is read-only · Continue the chat below."
+			: "AI trainer note · read-only";
+		readOnlyNotice.classList.toggle("hidden", !readOnly);
+	}
+	renderNoteEditorTrainerConversation();
 }
 
 function hasNoteEditorNutritionContent() {
@@ -1405,6 +1418,10 @@ function isTouchDevice() {
 async function handleNoteEditorSwipeDismiss() {
 	const modal = $("note-editor-modal");
 	if (!modal || modal.classList.contains("hidden")) return;
+	if (editingNoteMetadata?.source === AI_TRAINER_NOTE_SOURCE) {
+		closeNoteEditor();
+		return;
+	}
 	const text = $("note-editor-content").value.trim();
 	const caloriesValue = $("note-editor-calories").value.trim();
 	const nutritionValue = serializeNoteEditorNutritionFields();
@@ -1523,6 +1540,15 @@ function closeNoteEditor() {
 	$("note-editor-content").value = "";
 	const trainerResponseInput = $("note-editor-trainer-response");
 	if (trainerResponseInput) trainerResponseInput.value = "";
+	if (noteEditorTrainerConversationAbortController) {
+		noteEditorTrainerConversationAbortController.abort();
+		noteEditorTrainerConversationAbortController = null;
+	}
+	const trainerThread = $("note-editor-trainer-thread");
+	if (trainerThread) trainerThread.innerHTML = "";
+	const trainerCount = $("note-editor-trainer-count");
+	if (trainerCount)
+		trainerCount.textContent = `0 / ${TRAINER_NOTE_CONVERSATION_MAX_CHARS}`;
 	$("note-editor-calories").value = "";
 	setNoteEditorNutritionFields(null);
 	editingNoteId = null;
@@ -1543,30 +1569,8 @@ async function persistNoteEditor({ closeOnSave = true } = {}) {
 	const isTrainerNote = editingNoteMetadata?.source === AI_TRAINER_NOTE_SOURCE;
 	const trainerResponse = $("note-editor-trainer-response")?.value.trim() || "";
 	if (editingNoteReadOnly && isTrainerNote) {
-		if (!editingNoteId) return false;
-		try {
-			await updateNote(editingNoteId, {
-				text: $("note-editor-content").value.trim(),
-				calorieEntry: buildCalorieEntryFromEditor(),
-				trainerResponse,
-				dateKey: editingNoteDateKey,
-				fastContext: editingNoteContext,
-				createdAt: editingNoteCreatedAt,
-				metadata: editingNoteMetadata,
-			});
-		} catch (err) {
-			if (err?.message === "missing-key") {
-				handleNotesDecryptError(err);
-				return false;
-			}
-		}
-		editingNoteInitialTrainerResponse = trainerResponse;
-		renderNotes();
-		if (closeOnSave) closeNoteEditor();
-		showToast(
-			trainerResponse ? "Saved trainer response" : "Cleared trainer response",
-		);
-		return true;
+		showToast("Use Send to trainer to continue this conversation");
+		return false;
 	}
 	if (editingNoteReadOnly) {
 		showToast("AI trainer notes are read-only");
@@ -1612,6 +1616,135 @@ async function persistNoteEditor({ closeOnSave = true } = {}) {
 
 async function saveNoteEditor() {
 	await persistNoteEditor();
+}
+
+function getEditingNote() {
+	if (!editingNoteId) return null;
+	return notes.find((note) => note.id === editingNoteId) || null;
+}
+
+function renderNoteEditorTrainerConversation() {
+	const wrap = $("note-editor-trainer-response-wrap");
+	const thread = $("note-editor-trainer-thread");
+	const input = $("note-editor-trainer-response");
+	const count = $("note-editor-trainer-count");
+	const sendButton = $("note-editor-trainer-send");
+	const isTrainerNote = editingNoteMetadata?.source === AI_TRAINER_NOTE_SOURCE;
+	if (!wrap || !thread || !input || !count || !sendButton) return;
+	wrap.classList.toggle("hidden", !isTrainerNote);
+	if (!isTrainerNote) {
+		thread.innerHTML = "";
+		count.textContent = `0 / ${TRAINER_NOTE_CONVERSATION_MAX_CHARS}`;
+		sendButton.disabled = true;
+		sendButton.textContent = "Send to trainer";
+		return;
+	}
+	const note = getEditingNote();
+	const conversation = parseTrainerConversationMessages(note?.trainerResponse);
+	thread.innerHTML = "";
+	if (!conversation.length) {
+		const empty = document.createElement("div");
+		empty.className = "note-trainer-thread-empty";
+		empty.textContent =
+			"No follow-up messages yet. Ask the trainer about this specific note.";
+		thread.appendChild(empty);
+	} else {
+		conversation.forEach((message) => {
+			const bubble = document.createElement("div");
+			bubble.className = `note-trainer-message note-trainer-message--${message.role}`;
+			const role = document.createElement("div");
+			role.className = "note-trainer-message-role";
+			role.textContent = message.role === "trainer" ? "Trainer" : "You";
+			const text = document.createElement("div");
+			text.textContent = message.content;
+			bubble.appendChild(role);
+			bubble.appendChild(text);
+			thread.appendChild(bubble);
+		});
+		thread.scrollTop = thread.scrollHeight;
+	}
+	const messageDraft = normalizeSingleParagraph(
+		input.value,
+		TRAINER_NOTE_CONVERSATION_MAX_CHARS,
+	);
+	count.textContent = `${messageDraft.length} / ${TRAINER_NOTE_CONVERSATION_MAX_CHARS}`;
+	sendButton.disabled =
+		!messageDraft || Boolean(noteEditorTrainerConversationAbortController);
+	sendButton.textContent = noteEditorTrainerConversationAbortController
+		? "Sending..."
+		: "Send to trainer";
+}
+
+async function sendNoteEditorTrainerMessage() {
+	if (editingNoteMetadata?.source !== AI_TRAINER_NOTE_SOURCE || !editingNoteId)
+		return;
+	const input = $("note-editor-trainer-response");
+	if (!input) return;
+	if (noteEditorTrainerConversationAbortController) {
+		noteEditorTrainerConversationAbortController.abort();
+		return;
+	}
+	const note = getEditingNote();
+	if (!note) {
+		showToast("Could not load this note");
+		return;
+	}
+	const message = normalizeSingleParagraph(
+		input.value,
+		TRAINER_NOTE_CONVERSATION_MAX_CHARS,
+	);
+	if (!message) {
+		showToast("Write a message first");
+		renderNoteEditorTrainerConversation();
+		return;
+	}
+	const existingConversation = parseTrainerConversationMessages(
+		note.trainerResponse,
+	);
+	const abortController = new AbortController();
+	noteEditorTrainerConversationAbortController = abortController;
+	renderNoteEditorTrainerConversation();
+	try {
+		const reply = await generateAITrainerNoteConversationResponse({
+			note,
+			message,
+			conversation: existingConversation,
+			rangeOverride: getAITrainerNotesRangeOverride(),
+			providerOverride: getAITrainerProviderOverride(),
+			signal: abortController.signal,
+		});
+		if (!reply) return;
+		const updatedConversation = [
+			...existingConversation,
+			{ role: "user", content: message },
+			{ role: "trainer", content: reply },
+		];
+		try {
+			await updateNote(editingNoteId, {
+				text: $("note-editor-content").value.trim(),
+				calorieEntry: buildCalorieEntryFromEditor(),
+				trainerResponse:
+					serializeTrainerConversationMessages(updatedConversation),
+				dateKey: editingNoteDateKey,
+				fastContext: editingNoteContext,
+				createdAt: editingNoteCreatedAt,
+				metadata: editingNoteMetadata,
+			});
+		} catch (err) {
+			if (err?.message === "missing-key") {
+				handleNotesDecryptError(err);
+				return;
+			}
+		}
+		input.value = "";
+		renderNotes();
+		showToast("Trainer replied");
+	} finally {
+		if (noteEditorTrainerConversationAbortController === abortController) {
+			noteEditorTrainerConversationAbortController = null;
+		}
+		renderNoteEditorTrainerConversation();
+	}
 }
 
 async function removeNote() {
@@ -4271,6 +4404,16 @@ const AI_TRAINER_QUICK_NOTE_TEXT_TEMPLATE =
 	"You asked: {question} — Trainer replied: {response}";
 const TRAINER_QUICK_QUESTION_MAX_CHARS = 500;
 const TRAINER_QUICK_RESPONSE_MAX_CHARS = 700;
+// Stored as "prefix + JSON" so future parser versions can migrate safely.
+const TRAINER_NOTE_CONVERSATION_STORAGE_PREFIX = "trainer-chat:v1:";
+const TRAINER_NOTE_CONVERSATION_MAX_CHARS = 500;
+const AI_TRAINER_NOTE_CONVERSATION_PROMPT = [
+	"You are continuing an existing trainer conversation about one specific core note.",
+	"Treat coreNote as the main topic and keep all other app context as supporting context only.",
+	"Reply as the trainer in exactly one clear paragraph with practical next steps.",
+	"Be supportive and specific to fasting, nutrition, training, and recovery context when relevant.",
+	"Do not use markdown lists, headings, or multiple paragraphs.",
+].join(" ");
 const AI_TRAINER_NOTE_TAGS = Object.freeze([
 	"ai",
 	"trainer",
@@ -4410,6 +4553,66 @@ function normalizeSingleParagraph(value, maxChars) {
 	if (!collapsed) return "";
 	if (collapsed.length <= maxLength) return collapsed;
 	return collapsed.slice(0, maxLength).trimEnd();
+}
+
+function pluralize(count, singular, pluralWord = `${singular}s`) {
+	return Number(count) === 1 ? singular : pluralWord;
+}
+
+function normalizeTrainerConversationMessageRole(role) {
+	return role === "trainer" ? "trainer" : "user";
+}
+
+function normalizeTrainerConversationMessages(messages) {
+	if (!Array.isArray(messages)) return [];
+	return messages
+		.map((message) => ({
+			role: normalizeTrainerConversationMessageRole(message?.role),
+			content: normalizeSingleParagraph(
+				message?.content,
+				TRAINER_NOTE_CONVERSATION_MAX_CHARS,
+			),
+		}))
+		.filter((message) => Boolean(message.content));
+}
+
+function parseTrainerConversationMessages(value) {
+	const raw = String(value || "").trim();
+	if (!raw) return [];
+	if (raw.startsWith(TRAINER_NOTE_CONVERSATION_STORAGE_PREFIX)) {
+		const serialized = raw.slice(
+			TRAINER_NOTE_CONVERSATION_STORAGE_PREFIX.length,
+		);
+		try {
+			const parsed = JSON.parse(serialized);
+			return normalizeTrainerConversationMessages(parsed);
+		} catch {}
+	}
+	return [
+		{
+			role: "user",
+			content: normalizeSingleParagraph(
+				raw,
+				TRAINER_NOTE_CONVERSATION_MAX_CHARS,
+			),
+		},
+	].filter((message) => Boolean(message.content));
+}
+
+function serializeTrainerConversationMessages(messages) {
+	const normalized = normalizeTrainerConversationMessages(messages);
+	if (!normalized.length) return "";
+	return `${TRAINER_NOTE_CONVERSATION_STORAGE_PREFIX}${JSON.stringify(normalized)}`;
+}
+
+function formatTrainerConversationMessagesForContext(messages) {
+	return normalizeTrainerConversationMessages(messages)
+		.map((message) =>
+			message.role === "trainer"
+				? `Trainer: ${message.content}`
+				: `User: ${message.content}`,
+		)
+		.join("\n");
 }
 
 function getTrainerRangeCutoff(range, now = Date.now()) {
@@ -4837,7 +5040,10 @@ function buildTrainerContinuityContext(
 			source: note.metadata?.source || "user",
 			isAITrainerNote: isAITrainerNote(note),
 			text: getDisplayNoteText(note) || null,
-			userResponse: note.trainerResponse || null,
+			userResponse:
+				formatTrainerConversationMessagesForContext(
+					parseTrainerConversationMessages(note.trainerResponse),
+				) || null,
 		}),
 	);
 	const previousAITrainerNotes = trainerNotes.filter(
@@ -5241,7 +5447,7 @@ async function generateTrainerQuickQuestionResponse({
 		const firstParagraph = aiText.split(/\n\s*\n/u)[0] || "";
 		const response = normalizeSingleParagraph(
 			firstParagraph,
-			TRAINER_QUICK_RESPONSE_MAX_CHARS,
+			TRAINER_NOTE_CONVERSATION_MAX_CHARS,
 		);
 		if (!response) {
 			showToast("No response from AI");
@@ -5256,6 +5462,99 @@ async function generateTrainerQuickQuestionResponse({
 		console.error("Error calling AI API:", error);
 		showToast(
 			"Failed to generate trainer response. Please try again or check your AI settings.",
+		);
+		return null;
+	}
+}
+
+async function generateAITrainerNoteConversationResponse({
+	note,
+	message,
+	conversation,
+	rangeOverride = null,
+	providerOverride = null,
+	signal = null,
+}) {
+	const provider = normalizeLLMProvider(
+		providerOverride === null ? state.settings.llmProvider : providerOverride,
+	);
+	const normalizedMessage = normalizeSingleParagraph(
+		message,
+		TRAINER_NOTE_CONVERSATION_MAX_CHARS,
+	);
+	if (!normalizedMessage) {
+		showToast("Write a message first");
+		return null;
+	}
+	const normalizedConversationMessages =
+		normalizeTrainerConversationMessages(conversation);
+	const userPayload = JSON.stringify(
+		{
+			coreNote: {
+				id: note?.id || null,
+				date: note?.createdAt ? new Date(note.createdAt).toISOString() : null,
+				text: getDisplayNoteText(note) || null,
+			},
+			conversation: normalizedConversationMessages.length
+				? normalizedConversationMessages.map((entry) => ({
+						role: entry.role,
+						content: entry.content,
+					}))
+				: null,
+			userMessage: normalizedMessage,
+			fastingSchedule: buildFastingScheduleContext(),
+			activeFast: buildTrainerActiveFastContext(),
+			today: {
+				dateKey: formatDateKey(new Date()),
+				nutritionSummary:
+					formatNutritionInlineSummary(formatDateKey(new Date())) || null,
+			},
+			trainerContext: buildTrainerContinuityContext(
+				rangeOverride,
+				providerOverride,
+			),
+		},
+		null,
+		2,
+	);
+	try {
+		const data = await callAIChatCompletions({
+			systemPrompt: AI_TRAINER_NOTE_CONVERSATION_PROMPT,
+			userPrompt: userPayload,
+			purpose: "AI trainer conversation",
+			withReasoningFallback: true,
+			signal,
+			providerOverride: provider,
+		});
+		if (!data) return null;
+		const messageContent = data.choices?.[0]?.message?.content;
+		let aiText = "";
+		if (typeof messageContent === "string") {
+			aiText = messageContent.trim();
+		} else if (Array.isArray(messageContent)) {
+			aiText = messageContent
+				.map((part) => (typeof part?.text === "string" ? part.text : ""))
+				.join("\n")
+				.trim();
+		}
+		const firstParagraph = aiText.split(/\n\s*\n/u)[0] || "";
+		const response = normalizeSingleParagraph(
+			firstParagraph,
+			TRAINER_QUICK_RESPONSE_MAX_CHARS,
+		);
+		if (!response) {
+			showToast("No response from AI");
+			return null;
+		}
+		return response;
+	} catch (error) {
+		if (error?.name === "AbortError") {
+			showToast("Cancelled trainer message");
+			return null;
+		}
+		console.error("Error calling AI API:", error);
+		showToast(
+			"Failed to continue trainer conversation. Please try again or check your AI settings.",
 		);
 		return null;
 	}
@@ -5811,6 +6110,16 @@ function initButtons() {
 	$("note-editor-close").addEventListener("click", closeNoteEditor);
 	$("note-editor-save").addEventListener("click", saveNoteEditor);
 	$("note-editor-delete").addEventListener("click", removeNote);
+	const noteEditorTrainerInput = $("note-editor-trainer-response");
+	if (noteEditorTrainerInput) {
+		noteEditorTrainerInput.addEventListener("input", () => {
+			renderNoteEditorTrainerConversation();
+		});
+	}
+	$("note-editor-trainer-send").addEventListener(
+		"click",
+		sendNoteEditorTrainerMessage,
+	);
 	$("calorie-goal-recommend-btn").addEventListener("click", async () => {
 		const button = $("calorie-goal-recommend-btn");
 		const originalText = button.textContent;
@@ -7208,6 +7517,7 @@ function renderNotes() {
 	renderAITrainerNotesRangeOverride();
 	renderAITrainerProviderOverride();
 	renderTrainerQuickQuestionInput();
+	renderNoteEditorTrainerConversation();
 	renderCalorieSummary();
 	renderCalorieRing();
 	renderCalorieButton();
@@ -7490,7 +7800,7 @@ function buildNoteCardHeading({ label, variant }) {
 }
 
 function buildAITrainerNoteHeading() {
-	return buildNoteCardHeading({ label: "Trainer Note", variant: "trainer" });
+	return buildNoteCardHeading({ label: "Trainer Chat", variant: "trainer" });
 }
 
 function buildUserNoteHeading() {
@@ -7603,15 +7913,19 @@ function buildNoteCard(note) {
 		}
 	}
 
-	if (isAITrainer && note.trainerResponse) {
+	const trainerConversation = parseTrainerConversationMessages(
+		note.trainerResponse,
+	);
+	if (isAITrainer && trainerConversation.length) {
+		const latestMessage = trainerConversation[trainerConversation.length - 1];
 		const response = document.createElement("div");
 		response.className = "note-trainer-response";
 		const label = document.createElement("div");
 		label.className = "note-trainer-response-label";
-		label.textContent = "Your response";
+		label.textContent = `Conversation · ${trainerConversation.length} ${pluralize(trainerConversation.length, "message")}`;
 		const text = document.createElement("div");
 		text.className = "note-trainer-response-text";
-		text.textContent = note.trainerResponse;
+		text.textContent = `${latestMessage.role === "trainer" ? "Trainer" : "You"}: ${latestMessage.content}`;
 		response.appendChild(label);
 		response.appendChild(text);
 		card.appendChild(response);

@@ -542,6 +542,71 @@ body.bg-slate-950 {
 	white-space: pre-wrap;
 }
 
+.note-trainer-thread {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: 240px;
+	overflow-y: auto;
+	padding-right: 4px;
+}
+
+.note-trainer-thread-empty {
+	color: var(--text-subtle-color);
+	font-size: 11px;
+	line-height: 1.35;
+}
+
+.note-trainer-message {
+	border-radius: 12px;
+	padding: 8px 10px;
+	font-size: 12px;
+	line-height: 1.45;
+	white-space: pre-wrap;
+}
+
+.note-trainer-message--trainer {
+	border: 1px solid
+		color-mix(in srgb, var(--secondary-color) 34%, var(--border-color));
+	background: color-mix(
+		in srgb,
+		var(--surface-color) 82%,
+		var(--secondary-color)
+	);
+}
+
+.note-trainer-message--user {
+	border: 1px solid
+		color-mix(in srgb, var(--primary-color) 34%, var(--border-color));
+	background: color-mix(
+		in srgb,
+		var(--surface-color) 84%,
+		var(--primary-color)
+	);
+}
+
+.note-trainer-message-role {
+	color: var(--text-muted-color);
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	margin-bottom: 4px;
+}
+
+.note-trainer-actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.note-trainer-count {
+	color: var(--text-subtle-color);
+	font-size: 11px;
+	line-height: 1;
+}
+
 .note-markdown {
 	color: var(--text-color);
 	line-height: 1.45;
