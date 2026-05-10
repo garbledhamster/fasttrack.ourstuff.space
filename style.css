@@ -162,6 +162,11 @@ body.bg-slate-950 {
 	gap: 8px;
 }
 
+.note-card-ai {
+	border-color: color-mix(in srgb, var(--primary-color) 55%, var(--border-color));
+	background: color-mix(in srgb, var(--primary-color) 12%, var(--surface-color));
+}
+
 .note-calorie-entry {
 	display: flex;
 	gap: 12px;
@@ -200,6 +205,32 @@ body.bg-slate-950 {
 	color: var(--text-color);
 	white-space: pre-wrap;
 	font-size: 14px;
+}
+
+.note-markdown p {
+	margin: 0;
+}
+
+.note-markdown p + p {
+	margin-top: 8px;
+}
+
+.note-markdown ul,
+.note-markdown ol {
+	margin: 0;
+	padding-left: 20px;
+}
+
+.note-markdown li + li {
+	margin-top: 4px;
+}
+
+.note-markdown code {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 0.95em;
+	padding: 1px 4px;
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--surface-muted-color) 70%, transparent);
 }
 
 .note-nutrition-row {
@@ -304,6 +335,18 @@ body.bg-slate-950 {
 	align-items: center;
 	color: var(--text-muted-color);
 	font-size: 12px;
+}
+
+.note-ai-marker {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 10px;
+	border-radius: 999px;
+	border: 1px solid color-mix(in srgb, var(--primary-color) 55%, transparent);
+	background: color-mix(in srgb, var(--primary-color) 20%, transparent);
+	color: color-mix(in srgb, var(--primary-color) 70%, white);
+	font-size: 11px;
+	font-weight: 600;
 }
 
 .note-empty {

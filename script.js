@@ -375,6 +375,7 @@ let editingNoteOpenedAt = null;
 let editingNoteInitialText = "";
 let editingNoteInitialCalories = "";
 let editingNoteInitialNutrition = "";
+let editingNoteReadOnly = false;
 let editingHistoryId = null;
 
 let navHoldTimer = null;
@@ -741,6 +742,7 @@ async function normalizeNoteSnapshot(snap) {
 	}
 	const normalizedCreatedAt =
 		typeof data.createdAt === "number" ? data.createdAt : 0;
+	const normalizedSource = normalizeNoteSource(data.source);
 	return {
 		id: snap.id,
 		text,
@@ -750,7 +752,24 @@ async function normalizeNoteSnapshot(snap) {
 		goalContext: normalizeGoalContext(data.goalContext),
 		fastContext: normalizeFastContext(data.fastContext, normalizedCreatedAt),
 		calorieEntry,
+		source: normalizedSource || detectLegacyNoteSource(text),
 	};
+}
+
+function normalizeNoteSource(source) {
+	return source === AI_TRAINER_NOTE_SOURCE ? source : "";
+}
+
+function detectLegacyNoteSource(text) {
+	if (!text) return "";
+	return text.startsWith(`${AI_TRAINER_NOTE_TITLE}\n`) ||
+		text === AI_TRAINER_NOTE_TITLE
+		? AI_TRAINER_NOTE_SOURCE
+		: "";
+}
+
+function isAITrainerNote(note) {
+	return normalizeNoteSource(note?.source) === AI_TRAINER_NOTE_SOURCE;
 }
 
 function normalizeGoalMetric(value) {
@@ -970,6 +989,7 @@ async function buildNotePayload({
 	fastContext,
 	goalContext,
 	calorieEntry,
+	source,
 } = {}) {
 	const createdAt = Date.now();
 	const payload = await encryptNotePayload({
@@ -983,6 +1003,7 @@ async function buildNotePayload({
 		dateKey: formatDateKey(new Date(createdAt)),
 		goalContext: goalContext ?? buildGoalContext(),
 		fastContext: fastContext ?? buildFastContextAt(createdAt),
+		source: normalizeNoteSource(source),
 	};
 }
 
@@ -993,6 +1014,7 @@ async function buildNoteUpdatePayload({
 	createdAt,
 	goalContext,
 	calorieEntry,
+	source,
 } = {}) {
 	const payload = { updatedAt: Date.now() };
 	if (typeof text === "string" || calorieEntry !== undefined) {
@@ -1051,10 +1073,17 @@ async function buildNoteUpdatePayload({
 		}
 	}
 	if (typeof createdAt === "number") payload.createdAt = createdAt;
+	if (source !== undefined) payload.source = normalizeNoteSource(source);
 	return payload;
 }
 
-async function createNote({ text, dateKey, fastContext, calorieEntry } = {}) {
+async function createNote({
+	text,
+	dateKey,
+	fastContext,
+	calorieEntry,
+	source,
+} = {}) {
 	const user = auth.currentUser;
 	if (!user) return null;
 	const payload = await buildNotePayload({
@@ -1062,6 +1091,7 @@ async function createNote({ text, dateKey, fastContext, calorieEntry } = {}) {
 		dateKey,
 		fastContext,
 		calorieEntry,
+		source,
 	});
 	try {
 		const docRef = await addDoc(getNotesCollectionRef(user.uid), payload);
@@ -1073,7 +1103,7 @@ async function createNote({ text, dateKey, fastContext, calorieEntry } = {}) {
 
 async function updateNote(
 	noteId,
-	{ text, dateKey, fastContext, createdAt, calorieEntry } = {},
+	{ text, dateKey, fastContext, createdAt, calorieEntry, source } = {},
 ) {
 	const user = auth.currentUser;
 	if (!user || !noteId) return;
@@ -1083,6 +1113,7 @@ async function updateNote(
 		fastContext,
 		createdAt,
 		calorieEntry,
+		source,
 	});
 	try {
 		await setDoc(getNoteDocRef(user.uid, noteId), payload, { merge: true });
@@ -1109,8 +1140,9 @@ function openNoteEditor(note = null) {
 	editingNoteContext = note?.fastContext ?? buildFastContext();
 	editingNoteCreatedAt = note?.createdAt ?? null;
 	editingNoteOpenedAt = Date.now();
+	editingNoteReadOnly = isAITrainerNote(note);
 
-	const noteText = note?.text || "";
+	const noteText = getDisplayNoteText(note);
 	const legacyFoodNote = note?.calorieEntry?.foodNote || "";
 	$("note-editor-content").value = noteText || legacyFoodNote;
 	$("note-editor-calories").value = Number.isFinite(
@@ -1122,10 +1154,35 @@ function openNoteEditor(note = null) {
 	editingNoteInitialText = $("note-editor-content").value.trim();
 	editingNoteInitialCalories = $("note-editor-calories").value.trim();
 	editingNoteInitialNutrition = serializeNoteEditorNutritionFields();
+	setNoteEditorReadOnly(editingNoteReadOnly);
 	updateNoteEditorMeta();
-	$("note-editor-delete").classList.toggle("hidden", !editingNoteId);
+	$("note-editor-delete").classList.toggle(
+		"hidden",
+		!editingNoteId || editingNoteReadOnly,
+	);
+	$("note-editor-title").textContent = editingNoteReadOnly
+		? "AI trainer note (read-only)"
+		: "Note";
 	modal.classList.remove("hidden");
 	requestAnimationFrame(() => modal.classList.add("is-open"));
+}
+
+function setNoteEditorReadOnly(readOnly) {
+	const isReadOnly = Boolean(readOnly);
+	const textArea = $("note-editor-content");
+	const caloriesInput = $("note-editor-calories");
+	const saveButton = $("note-editor-save");
+	const deleteButton = $("note-editor-delete");
+	const estimateButton = $("note-editor-ai-estimate");
+	if (textArea) textArea.readOnly = isReadOnly;
+	if (caloriesInput) caloriesInput.disabled = isReadOnly;
+	if (estimateButton) estimateButton.disabled = isReadOnly;
+	NOTE_EDITOR_NUTRIENT_FIELDS.forEach(({ id }) => {
+		const input = $(id);
+		if (input) input.disabled = isReadOnly;
+	});
+	if (saveButton) saveButton.classList.toggle("hidden", isReadOnly);
+	if (deleteButton) deleteButton.classList.toggle("hidden", isReadOnly);
 }
 
 function parseCalorieInput(value) {
@@ -1204,6 +1261,10 @@ function isTouchDevice() {
 async function handleNoteEditorSwipeDismiss() {
 	const modal = $("note-editor-modal");
 	if (!modal || modal.classList.contains("hidden")) return;
+	if (editingNoteReadOnly) {
+		closeNoteEditor();
+		return;
+	}
 	const text = $("note-editor-content").value.trim();
 	const caloriesValue = $("note-editor-calories").value.trim();
 	const nutritionValue = serializeNoteEditorNutritionFields();
@@ -1315,9 +1376,13 @@ function closeNoteEditor() {
 	editingNoteInitialText = "";
 	editingNoteInitialCalories = "";
 	editingNoteInitialNutrition = "";
+	editingNoteReadOnly = false;
+	setNoteEditorReadOnly(false);
+	$("note-editor-title").textContent = "Note";
 }
 
 async function persistNoteEditor({ closeOnSave = true } = {}) {
+	if (editingNoteReadOnly) return false;
 	const text = $("note-editor-content").value.trim();
 	const calorieEntry = buildCalorieEntryFromEditor();
 	if (!text && !calorieEntry) {
@@ -1357,6 +1422,7 @@ async function saveNoteEditor() {
 }
 
 async function removeNote() {
+	if (editingNoteReadOnly) return;
 	if (!editingNoteId) return;
 	await deleteNote(editingNoteId);
 	renderNotes();
@@ -3910,10 +3976,11 @@ const AI_TRAINER_NOTE_PROMPT = [
 	"Write a concise trainer summary note with constructive personal feedback.",
 	"Focus on actionable next steps for nutrition, fasting routine, exercise, and recovery.",
 	"Respect user instructions, dietary needs, injuries, and limitations.",
-	"Keep output light and actionable: max 4 short bullet points, no markdown headings, no fluff.",
+	"Keep output light and actionable: max 4 short markdown bullet points, no markdown headings, no fluff.",
 	"If information is missing, give safe, realistic suggestions and mention uncertainty briefly.",
 ].join(" ");
 const AI_TRAINER_NOTE_TITLE = "AI Trainer Note";
+const AI_TRAINER_NOTE_SOURCE = "ai-trainer";
 
 function normalizeOpenAINotesRange(value) {
 	const n = Number(value);
@@ -3945,6 +4012,54 @@ function getNotesForTrainer() {
 		return sorted;
 	}
 	return sorted.filter((n) => (n.createdAt || 0) >= cutoff);
+}
+
+function getFastsForTrainer() {
+	const range = normalizeOpenAINotesRange(state.settings.openaiNotesRange);
+	if (range === 0 || !state.history.length) return [];
+	const sorted = [...state.history]
+		.filter(
+			(entry) =>
+				Number.isFinite(entry?.startTimestamp) &&
+				Number.isFinite(entry?.endTimestamp),
+		)
+		.sort((a, b) => b.endTimestamp - a.endTimestamp);
+	if (range === 1) return sorted.slice(0, 1);
+	let cutoff;
+	if (range === 2) {
+		const d = new Date();
+		cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+	} else if (range === 3) {
+		cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+	} else if (range === 4) {
+		const d = new Date();
+		cutoff = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+	} else if (range === 5) {
+		const d = new Date();
+		cutoff = new Date(d.getFullYear(), 0, 1).getTime();
+	} else {
+		return sorted;
+	}
+	return sorted.filter((entry) => (entry.endTimestamp || 0) >= cutoff);
+}
+
+function buildFastingScheduleForTrainer() {
+	const defaultTypeId = resolveFastTypeId(state.settings.defaultFastTypeId);
+	const defaultType = getTypeById(defaultTypeId);
+	return {
+		defaultFastType: defaultType
+			? {
+					id: defaultType.id,
+					label: defaultType.label,
+					durationHours: Number(defaultType.hours),
+				}
+			: null,
+		availableFastTypes: FAST_TYPES.map((type) => ({
+			id: type.id,
+			label: type.label,
+			durationHours: Number(type.hours),
+		})),
+	};
 }
 
 function sanitizeBearerToken(value) {
@@ -4246,7 +4361,16 @@ async function recommendGoalPlanWithAI() {
 	const profile = buildGoalRecommendationProfile();
 	const trainerNotes = getNotesForTrainer().map((n) => ({
 		date: n.createdAt ? new Date(n.createdAt).toISOString() : null,
-		text: n.text || null,
+		text: getDisplayNoteText(n) || null,
+		source: normalizeNoteSource(n.source) || null,
+	}));
+	const completedFasts = getFastsForTrainer().map((entry) => ({
+		start: new Date(entry.startTimestamp).toISOString(),
+		end: new Date(entry.endTimestamp).toISOString(),
+		durationHours: Number(entry.durationHours) || null,
+		typeId: entry.typeId || null,
+		typeLabel: getTypeById(entry.typeId)?.label || null,
+		status: entry.status || null,
 	}));
 	const recommendationPrompt = [
 		"You are a personal trainer and nutrition coach.",
@@ -4266,6 +4390,12 @@ async function recommendGoalPlanWithAI() {
 		{
 			profile,
 			instructions: trainerInstructions || null,
+			fasting: {
+				inFast: Boolean(state.activeFast),
+				activeFast: state.activeFast ? buildFastContext() : buildInactiveFastContext(),
+				schedule: buildFastingScheduleForTrainer(),
+				completedFasts: completedFasts.length ? completedFasts : null,
+			},
 			notes: trainerNotes.length ? trainerNotes : null,
 		},
 		null,
@@ -4365,7 +4495,16 @@ async function generateTrainerNoteWithAI() {
 	const profile = buildGoalRecommendationProfile();
 	const trainerNotes = getNotesForTrainer().map((n) => ({
 		date: n.createdAt ? new Date(n.createdAt).toISOString() : null,
-		text: n.text || null,
+		text: getDisplayNoteText(n) || null,
+		source: normalizeNoteSource(n.source) || null,
+	}));
+	const completedFasts = getFastsForTrainer().map((entry) => ({
+		start: new Date(entry.startTimestamp).toISOString(),
+		end: new Date(entry.endTimestamp).toISOString(),
+		durationHours: Number(entry.durationHours) || null,
+		typeId: entry.typeId || null,
+		typeLabel: getTypeById(entry.typeId)?.label || null,
+		status: entry.status || null,
 	}));
 	const todayKey = formatDateKey(new Date());
 	const todayCalories = getNoteCaloriesForDateKey(todayKey);
@@ -4374,7 +4513,12 @@ async function generateTrainerNoteWithAI() {
 		{
 			profile,
 			instructions: trainerInstructions || null,
-			activeFast: buildFastContext(),
+			fasting: {
+				inFast: Boolean(state.activeFast),
+				activeFast: state.activeFast ? buildFastContext() : buildInactiveFastContext(),
+				schedule: buildFastingScheduleForTrainer(),
+				completedFasts: completedFasts.length ? completedFasts : null,
+			},
 			today: {
 				dateKey: todayKey,
 				calories: Number.isFinite(todayCalories) ? todayCalories : null,
@@ -4421,9 +4565,10 @@ async function addAITrainerNote() {
 	const trainerText = await generateTrainerNoteWithAI();
 	if (!trainerText) return false;
 	const noteId = await createNote({
-		text: `${AI_TRAINER_NOTE_TITLE}\n${trainerText}`,
+		text: trainerText,
 		dateKey: formatDateKey(new Date()),
 		fastContext: buildFastContext(),
+		source: AI_TRAINER_NOTE_SOURCE,
 	});
 	if (!noteId) {
 		showToast("Failed to save AI trainer note");
@@ -6106,6 +6251,11 @@ function buildNoteCard(note) {
 	const card = document.createElement("button");
 	card.type = "button";
 	card.className = "note-card";
+	const aiTrainerNote = isAITrainerNote(note);
+	if (aiTrainerNote) {
+		card.classList.add("note-card-ai");
+		card.dataset.noteSource = AI_TRAINER_NOTE_SOURCE;
+	}
 	card.addEventListener("click", () => openNoteEditor(note));
 
 	const hasCalorieEntry = Boolean(note.calorieEntry);
@@ -6134,8 +6284,14 @@ function buildNoteCard(note) {
 		detailWrap.className = "flex-1 flex flex-col gap-2";
 
 		const entryText = document.createElement("div");
-		entryText.className = "note-calorie-text";
-		entryText.textContent = note.text || "Nutrition entry";
+		entryText.className = aiTrainerNote
+			? "note-calorie-text note-markdown"
+			: "note-calorie-text";
+		if (aiTrainerNote) {
+			entryText.innerHTML = renderSafeMarkdown(getDisplayNoteText(note) || "");
+		} else {
+			entryText.textContent = note.text || "Nutrition entry";
+		}
 		detailWrap.appendChild(entryText);
 
 		const nutritionRow = document.createElement("div");
@@ -6151,8 +6307,14 @@ function buildNoteCard(note) {
 		card.appendChild(entry);
 	} else {
 		const text = document.createElement("div");
-		text.className = "text-default whitespace-pre-wrap text-sm md:text-xs";
-		text.textContent = note.text || "Untitled note";
+		text.className = aiTrainerNote
+			? "note-markdown text-default text-sm md:text-xs"
+			: "text-default whitespace-pre-wrap text-sm md:text-xs";
+		if (aiTrainerNote) {
+			text.innerHTML = renderSafeMarkdown(getDisplayNoteText(note) || "");
+		} else {
+			text.textContent = note.text || "Untitled note";
+		}
 		card.appendChild(text);
 	}
 
@@ -6179,10 +6341,80 @@ function buildNoteCard(note) {
 	}
 
 	meta.appendChild(date);
+	if (aiTrainerNote) {
+		const aiMarker = document.createElement("span");
+		aiMarker.className = "note-ai-marker";
+		aiMarker.textContent = "AI note";
+		meta.appendChild(aiMarker);
+	}
 	meta.appendChild(badge);
 
 	card.appendChild(meta);
 	return card;
+}
+
+function getDisplayNoteText(note) {
+	const rawText = String(note?.text || "");
+	if (!isAITrainerNote(note)) return rawText;
+	if (rawText.startsWith(`${AI_TRAINER_NOTE_TITLE}\n`)) {
+		return rawText.slice(AI_TRAINER_NOTE_TITLE.length + 1).trim();
+	}
+	if (rawText === AI_TRAINER_NOTE_TITLE) return "";
+	return rawText;
+}
+
+function renderSafeMarkdown(text) {
+	const lines = String(text || "")
+		.replaceAll("\r\n", "\n")
+		.split("\n");
+	const chunks = [];
+	let index = 0;
+	while (index < lines.length) {
+		if (!lines[index].trim()) {
+			index += 1;
+			continue;
+		}
+		const listMatch = lines[index].match(/^(\s*)([-*]|\d+\.)\s+/);
+		if (listMatch) {
+			const ordered = /\d+\./.test(listMatch[2]);
+			const tag = ordered ? "ol" : "ul";
+			const items = [];
+			while (index < lines.length) {
+				const match = lines[index].match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
+				if (!match) break;
+				const nextOrdered = /\d+\./.test(match[2]);
+				if (nextOrdered !== ordered) break;
+				items.push(`<li>${renderMarkdownInline(match[3])}</li>`);
+				index += 1;
+			}
+			chunks.push(`<${tag}>${items.join("")}</${tag}>`);
+			continue;
+		}
+		const paragraph = [];
+		while (index < lines.length && lines[index].trim()) {
+			paragraph.push(renderMarkdownInline(lines[index]));
+			index += 1;
+		}
+		chunks.push(`<p>${paragraph.join("<br>")}</p>`);
+	}
+	return chunks.join("");
+}
+
+function renderMarkdownInline(text) {
+	const escaped = escapeHtml(String(text || ""));
+	return escaped
+		.replaceAll(/`([^`]+)`/g, "<code>$1</code>")
+		.replaceAll(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+		.replaceAll(/\*([^*]+)\*/g, "<em>$1</em>");
+}
+
+function escapeHtml(text) {
+	return text
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#39;");
 }
 
 function getNoteTimestampLabel(note) {
