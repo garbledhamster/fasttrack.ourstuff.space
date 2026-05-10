@@ -270,7 +270,7 @@ const OPENAI_ALLOWED_MODELS = Object.freeze([
 	"gpt-5.4",
 	"gpt-5.4-mini",
 ]);
-const DEFAULT_OPENAI_MODEL = OPENAI_ALLOWED_MODELS[0];
+const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
 const SUPPORTED_LLM_PROVIDERS = new Set(["openai", "byo"]);
 const DEFAULT_LLM_PROVIDER = "openai";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
@@ -290,7 +290,7 @@ const defaultState = {
 		llmProvider: DEFAULT_LLM_PROVIDER,
 		openaiApiKey: "",
 		openaiModel: DEFAULT_OPENAI_MODEL,
-		openaiReasoningEffort: "none",
+		openaiReasoningEffort: "low",
 		openaiTrainerInstructions: "",
 		openaiNotesRange: 0,
 		byoLlm: {
@@ -403,6 +403,7 @@ let notesPortal = null;
 let notesBackdrop = null;
 let bodyOverflowBeforeNotes = null;
 let notesSwipeHandlersAttached = false;
+let aiTrainerNotesRangeOverride = null;
 let historyProgressOverlayOpen = false;
 let historyProgressPortal = null;
 let historyProgressDrawerCloseTimeout = null;
@@ -2752,6 +2753,7 @@ function openNotesDrawer() {
 
 	notesOverlayOpen = true;
 	setNotesNavActive(true);
+	aiTrainerNotesRangeOverride = null;
 	renderNotes();
 }
 
@@ -4192,11 +4194,21 @@ function normalizeOpenAINotesRange(value) {
 	return Math.min(Math.round(n), OPENAI_NOTES_RANGE_MAX);
 }
 
-function getTrainerContextRange() {
+function getGlobalTrainerContextRange() {
 	const provider = normalizeLLMProvider(state.settings.llmProvider);
 	return provider === "byo"
 		? normalizeOpenAINotesRange(state.settings.byoLlm?.notesRange)
 		: normalizeOpenAINotesRange(state.settings.openaiNotesRange);
+}
+
+function getTrainerContextRange() {
+	return getGlobalTrainerContextRange();
+}
+
+function getAITrainerNotesRangeOverride() {
+	return aiTrainerNotesRangeOverride === null
+		? getGlobalTrainerContextRange()
+		: normalizeOpenAINotesRange(aiTrainerNotesRangeOverride);
 }
 
 function getTrainerRangeCutoff(range, now = Date.now()) {
@@ -4232,8 +4244,11 @@ function getTrainerRangeCutoff(range, now = Date.now()) {
 	return null;
 }
 
-function getNotesForTrainer() {
-	const range = getTrainerContextRange();
+function getNotesForTrainer(rangeOverride = null) {
+	const range =
+		rangeOverride === null
+			? getTrainerContextRange()
+			: normalizeOpenAINotesRange(rangeOverride);
 	if (range === 0 || !notes.length) return [];
 	const now = Date.now();
 	const sorted = [...notes].sort(
@@ -4248,8 +4263,11 @@ function getNotesForTrainer() {
 	return sorted.filter((n) => (n.createdAt || 0) >= cutoff);
 }
 
-function getFastsForTrainer() {
-	const range = getTrainerContextRange();
+function getFastsForTrainer(rangeOverride = null) {
+	const range =
+		rangeOverride === null
+			? getTrainerContextRange()
+			: normalizeOpenAINotesRange(rangeOverride);
 	if (range === 0 || !state.history.length) return [];
 	const sorted = [...state.history].sort(
 		(a, b) =>
@@ -4589,8 +4607,12 @@ function buildTrainerCompletedFastSummary(entry) {
 	};
 }
 
-function buildTrainerContinuityContext() {
-	const trainerNotes = getNotesForTrainer().map((note) => ({
+function buildTrainerContinuityContext(rangeOverride = null) {
+	const range =
+		rangeOverride === null
+			? getTrainerContextRange()
+			: normalizeOpenAINotesRange(rangeOverride);
+	const trainerNotes = getNotesForTrainer(range).map((note) => ({
 		date: note.createdAt ? new Date(note.createdAt).toISOString() : null,
 		source: note.metadata?.source || "user",
 		isAITrainerNote: isAITrainerNote(note),
@@ -4600,9 +4622,11 @@ function buildTrainerContinuityContext() {
 	const previousAITrainerNotes = trainerNotes.filter(
 		(note) => note.isAITrainerNote,
 	);
-	const completedFasts = getFastsForTrainer().map(buildTrainerCompletedFastSummary);
+	const completedFasts = getFastsForTrainer(range).map(
+		buildTrainerCompletedFastSummary,
+	);
 	return {
-		rangeLabel: OPENAI_NOTES_RANGE_LABELS[getTrainerContextRange()],
+		rangeLabel: OPENAI_NOTES_RANGE_LABELS[range],
 		notes: trainerNotes.length ? trainerNotes : null,
 		previousAITrainerNotes: previousAITrainerNotes.length
 			? previousAITrainerNotes
@@ -4819,7 +4843,7 @@ async function estimateCaloriesWithAI(foodDetails) {
 	}
 }
 
-async function generateTrainerNoteWithAI() {
+async function generateTrainerNoteWithAI(rangeOverride = null) {
 	const provider = normalizeLLMProvider(state.settings.llmProvider);
 	const byoLlm = normalizeByoLlmSettings(state.settings.byoLlm);
 	const trainerInstructions = String(
@@ -4828,7 +4852,7 @@ async function generateTrainerNoteWithAI() {
 			: state.settings.openaiTrainerInstructions || "",
 	).trim();
 	const profile = buildGoalRecommendationProfile();
-	const trainerContext = buildTrainerContinuityContext();
+	const trainerContext = buildTrainerContinuityContext(rangeOverride);
 	const todayKey = formatDateKey(new Date());
 	const todayCalories = getNoteCaloriesForDateKey(todayKey);
 	const todayNutrition = formatNutritionInlineSummary(todayKey);
@@ -4880,8 +4904,8 @@ async function generateTrainerNoteWithAI() {
 	}
 }
 
-async function addAITrainerNote() {
-	const trainerText = await generateTrainerNoteWithAI();
+async function addAITrainerNote(rangeOverride = null) {
+	const trainerText = await generateTrainerNoteWithAI(rangeOverride);
 	if (!trainerText) return false;
 	const noteId = await createNote({
 		text: trainerText,
@@ -5130,6 +5154,9 @@ function initButtons() {
 		if (label)
 			label.textContent =
 				OPENAI_NOTES_RANGE_LABELS[state.settings.openaiNotesRange];
+		if (aiTrainerNotesRangeOverride === null) {
+			renderAITrainerNotesRangeOverride();
+		}
 		void saveState();
 	});
 	$("byo-llm-notes-range").addEventListener("input", (event) => {
@@ -5140,6 +5167,9 @@ function initButtons() {
 		});
 		const label = $("byo-llm-notes-range-label");
 		if (label) label.textContent = OPENAI_NOTES_RANGE_LABELS[notesRange];
+		if (aiTrainerNotesRangeOverride === null) {
+			renderAITrainerNotesRangeOverride();
+		}
 		void saveState();
 	});
 
@@ -5258,12 +5288,16 @@ function initButtons() {
 	$("edit-history-delete").addEventListener("click", deleteEditedHistoryEntry);
 
 	$("new-note-btn").addEventListener("click", () => openNoteEditor());
+	$("ai-trainer-notes-range").addEventListener("input", (event) => {
+		aiTrainerNotesRangeOverride = normalizeOpenAINotesRange(event.target.value);
+		renderAITrainerNotesRangeOverride();
+	});
 	$("ai-trainer-note-btn").addEventListener("click", async () => {
 		const button = $("ai-trainer-note-btn");
 		const originalText = button.textContent;
 		button.disabled = true;
 		button.textContent = "Generating...";
-		await addAITrainerNote();
+		await addAITrainerNote(getAITrainerNotesRangeOverride());
 		button.disabled = false;
 		button.textContent = originalText;
 	});
@@ -5548,6 +5582,9 @@ function renderSettings() {
 		byoNotesRangeSlider.value = rangeVal;
 		const label = $("byo-llm-notes-range-label");
 		if (label) label.textContent = OPENAI_NOTES_RANGE_LABELS[rangeVal];
+	}
+	if (aiTrainerNotesRangeOverride === null) {
+		renderAITrainerNotesRangeOverride();
 	}
 	renderOpenAIModelOptions();
 	if (reasoningSelect) {
@@ -6647,10 +6684,20 @@ function formatDateTimeLong(date) {
 function renderNotes() {
 	renderHistoryNotes();
 	renderNotesTab();
+	renderAITrainerNotesRangeOverride();
 	renderCalorieSummary();
 	renderCalorieRing();
 	renderCalorieButton();
 	renderNutritionTracker();
+}
+
+function renderAITrainerNotesRangeOverride() {
+	const slider = $("ai-trainer-notes-range");
+	const label = $("ai-trainer-notes-range-label");
+	if (!slider || !label) return;
+	const range = getAITrainerNotesRangeOverride();
+	slider.value = range;
+	label.textContent = OPENAI_NOTES_RANGE_LABELS[range];
 }
 
 function renderHistoryNotes() {
