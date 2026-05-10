@@ -376,6 +376,7 @@ let editingNoteContext = null;
 let editingNoteCreatedAt = null;
 let editingNoteOpenedAt = null;
 let editingNoteInitialText = "";
+let editingNoteInitialFoodDetails = "";
 let editingNoteInitialCalories = "";
 let editingNoteInitialNutrition = "";
 let editingNoteInitialTrainerResponse = "";
@@ -1224,10 +1225,14 @@ function openNoteEditor(note = null) {
 	editingNoteOpenedAt = Date.now();
 
 	const noteText = getDisplayNoteText(note);
-	const legacyFoodNote = note?.calorieEntry?.foodNote || "";
+	const foodDetails = note?.calorieEntry?.foodNote || "";
+	const noteContent =
+		foodDetails && noteText === foodDetails ? "" : noteText || "";
 	editingNoteMetadata = normalizeNoteMetadata(note?.metadata, note?.text || "");
 	editingNoteReadOnly = isReadOnlyNote(note);
-	$("note-editor-content").value = noteText || legacyFoodNote;
+	$("note-editor-content").value = noteContent;
+	const foodDetailsInput = $("note-editor-food-details");
+	if (foodDetailsInput) foodDetailsInput.value = foodDetails;
 	const trainerResponseInput = $("note-editor-trainer-response");
 	if (trainerResponseInput) {
 		trainerResponseInput.value = note?.trainerResponse || "";
@@ -1239,6 +1244,7 @@ function openNoteEditor(note = null) {
 		: "";
 	setNoteEditorNutritionFields(note?.calorieEntry);
 	editingNoteInitialText = $("note-editor-content").value.trim();
+	editingNoteInitialFoodDetails = foodDetailsInput?.value.trim() || "";
 	editingNoteInitialCalories = $("note-editor-calories").value.trim();
 	editingNoteInitialNutrition = serializeNoteEditorNutritionFields();
 	editingNoteInitialTrainerResponse = trainerResponseInput?.value.trim() || "";
@@ -1287,12 +1293,14 @@ function applyNoteEditorReadOnlyState(readOnly) {
 		markdownPreview.classList.toggle("hidden", !showMarkdownPreview);
 	}
 	if (content) content.classList.toggle("hidden", showMarkdownPreview);
-	["note-editor-calories", ...NOTE_EDITOR_NUTRIENT_FIELDS.map(({ id }) => id)].forEach(
-		(id) => {
-			const input = $(id);
-			if (input) input.readOnly = Boolean(readOnly);
-		},
-	);
+	[
+		"note-editor-food-details",
+		"note-editor-calories",
+		...NOTE_EDITOR_NUTRIENT_FIELDS.map(({ id }) => id),
+	].forEach((id) => {
+		const input = $(id);
+		if (input) input.readOnly = Boolean(readOnly);
+	});
 	const estimateButton = $("note-editor-ai-estimate");
 	if (estimateButton) estimateButton.disabled = Boolean(readOnly);
 	const responseWrap = $("note-editor-trainer-response-wrap");
@@ -1316,7 +1324,12 @@ function hasNoteEditorNutritionContent() {
 	);
 }
 
+function getNoteEditorFoodDetails() {
+	return $("note-editor-food-details")?.value.trim() || "";
+}
+
 function buildCalorieEntryFromEditor() {
+	const foodNote = getNoteEditorFoodDetails();
 	const calories = parseCalorieInput($("note-editor-calories").value.trim());
 	const macros = {
 		protein: parseCalorieInput($("note-editor-protein")?.value.trim() || ""),
@@ -1347,9 +1360,10 @@ function buildCalorieEntryFromEditor() {
 		),
 	};
 	const hasNutrition = hasAnyNutrientValue(macros, micros, vitamins);
-	if (calories === null && !hasNutrition) return null;
+	if (calories === null && !foodNote && !hasNutrition) return null;
 	return {
 		calories,
+		foodNote,
 		macros,
 		micros,
 		vitamins,
@@ -1365,17 +1379,20 @@ async function handleNoteEditorSwipeDismiss() {
 	const modal = $("note-editor-modal");
 	if (!modal || modal.classList.contains("hidden")) return;
 	const text = $("note-editor-content").value.trim();
+	const foodDetails = getNoteEditorFoodDetails();
 	const caloriesValue = $("note-editor-calories").value.trim();
 	const nutritionValue = serializeNoteEditorNutritionFields();
 	const trainerResponse =
 		$("note-editor-trainer-response")?.value.trim() || "";
 	const hasChanges =
 		text !== editingNoteInitialText ||
+		foodDetails !== editingNoteInitialFoodDetails ||
 		caloriesValue !== editingNoteInitialCalories ||
 		nutritionValue !== editingNoteInitialNutrition ||
 		trainerResponse !== editingNoteInitialTrainerResponse;
 	const hasContent =
 		Boolean(text) ||
+		Boolean(foodDetails) ||
 		Boolean(caloriesValue) ||
 		hasNoteEditorNutritionContent() ||
 		Boolean(trainerResponse);
@@ -1477,6 +1494,8 @@ function closeNoteEditor() {
 		modal.classList.add("hidden");
 	}, 250);
 	$("note-editor-content").value = "";
+	const foodDetailsInput = $("note-editor-food-details");
+	if (foodDetailsInput) foodDetailsInput.value = "";
 	const trainerResponseInput = $("note-editor-trainer-response");
 	if (trainerResponseInput) trainerResponseInput.value = "";
 	$("note-editor-calories").value = "";
@@ -1487,6 +1506,7 @@ function closeNoteEditor() {
 	editingNoteCreatedAt = null;
 	editingNoteOpenedAt = null;
 	editingNoteInitialText = "";
+	editingNoteInitialFoodDetails = "";
 	editingNoteInitialCalories = "";
 	editingNoteInitialNutrition = "";
 	editingNoteInitialTrainerResponse = "";
@@ -1532,7 +1552,7 @@ async function persistNoteEditor({ closeOnSave = true } = {}) {
 	const text = $("note-editor-content").value.trim();
 	const calorieEntry = buildCalorieEntryFromEditor();
 	if (!text && !calorieEntry) {
-		showToast("Add text, calories, or nutrition values before saving");
+		showToast("Add text, food details, calories, or nutrition values before saving");
 		return false;
 	}
 	try {
@@ -4116,16 +4136,36 @@ function normalizeOpenAIReasoningEffort(value) {
 	return OPENAI_REASONING_EFFORTS.has(next) ? next : "none";
 }
 
-const OPENAI_NOTES_RANGE_MAX = 6;
 const OPENAI_NOTES_RANGE_LABELS = [
 	"No notes",
 	"Last note",
+	"Last 2 notes",
+	"Last 3 notes",
+	"Last 4 notes",
+	"Last 5 notes",
+	"Last 6 notes",
+	"Last 7 notes",
+	"Last 8 notes",
+	"Last 9 notes",
+	"Last 10 notes",
 	"Today's notes",
 	"This week's notes",
 	"This month's notes",
-	"This year's notes",
+	"Last 2 months",
+	"Last 3 months",
+	"Last 6 months",
+	"Last 1 year",
 	"All notes",
 ];
+const OPENAI_NOTES_RANGE_MAX = OPENAI_NOTES_RANGE_LABELS.length - 1;
+const OPENAI_NOTES_LAST_COUNT_MAX = 10;
+const OPENAI_NOTES_TODAY_RANGE = 11;
+const OPENAI_NOTES_WEEK_RANGE = 12;
+const OPENAI_NOTES_MONTH_RANGE = 13;
+const OPENAI_NOTES_TWO_MONTHS_RANGE = 14;
+const OPENAI_NOTES_THREE_MONTHS_RANGE = 15;
+const OPENAI_NOTES_SIX_MONTHS_RANGE = 16;
+const OPENAI_NOTES_YEAR_RANGE = 17;
 const AI_TRAINER_NOTE_PROMPT = [
 	"You are the user's expert trainer and nutrition coach: practical, supportive, observant, and forward-looking.",
 	"Write a concise markdown trainer note with constructive personal feedback.",
@@ -4160,18 +4200,34 @@ function getTrainerContextRange() {
 }
 
 function getTrainerRangeCutoff(range, now = Date.now()) {
-	if (range === 2) {
-		const d = new Date();
+	if (range === OPENAI_NOTES_TODAY_RANGE) {
+		const d = new Date(now);
 		return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 	}
-	if (range === 3) return now - 7 * 24 * 60 * 60 * 1000;
-	if (range === 4) {
-		const d = new Date();
+	if (range === OPENAI_NOTES_WEEK_RANGE) return now - 7 * 24 * 60 * 60 * 1000;
+	if (range === OPENAI_NOTES_MONTH_RANGE) {
+		const d = new Date(now);
 		return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
 	}
-	if (range === 5) {
-		const d = new Date();
-		return new Date(d.getFullYear(), 0, 1).getTime();
+	if (range === OPENAI_NOTES_TWO_MONTHS_RANGE) {
+		const d = new Date(now);
+		d.setMonth(d.getMonth() - 2);
+		return d.getTime();
+	}
+	if (range === OPENAI_NOTES_THREE_MONTHS_RANGE) {
+		const d = new Date(now);
+		d.setMonth(d.getMonth() - 3);
+		return d.getTime();
+	}
+	if (range === OPENAI_NOTES_SIX_MONTHS_RANGE) {
+		const d = new Date(now);
+		d.setMonth(d.getMonth() - 6);
+		return d.getTime();
+	}
+	if (range === OPENAI_NOTES_YEAR_RANGE) {
+		const d = new Date(now);
+		d.setFullYear(d.getFullYear() - 1);
+		return d.getTime();
 	}
 	return null;
 }
@@ -4183,7 +4239,9 @@ function getNotesForTrainer() {
 	const sorted = [...notes].sort(
 		(a, b) => (b.createdAt || 0) - (a.createdAt || 0),
 	);
-	if (range === 1) return sorted.slice(0, 1);
+	if (range >= 1 && range <= OPENAI_NOTES_LAST_COUNT_MAX) {
+		return sorted.slice(0, range);
+	}
 	if (range === OPENAI_NOTES_RANGE_MAX) return sorted;
 	const cutoff = getTrainerRangeCutoff(range, now);
 	if (cutoff === null) return sorted;
@@ -4194,9 +4252,13 @@ function getFastsForTrainer() {
 	const range = getTrainerContextRange();
 	if (range === 0 || !state.history.length) return [];
 	const sorted = [...state.history].sort(
-		(a, b) => (b.endTimestamp || b.startTimestamp || 0) - (a.endTimestamp || a.startTimestamp || 0),
+		(a, b) =>
+			(b.endTimestamp || b.startTimestamp || 0) -
+			(a.endTimestamp || a.startTimestamp || 0),
 	);
-	if (range === 1) return sorted.slice(0, 1);
+	if (range >= 1 && range <= OPENAI_NOTES_LAST_COUNT_MAX) {
+		return sorted.slice(0, range);
+	}
 	if (range === OPENAI_NOTES_RANGE_MAX) return sorted;
 	const cutoff = getTrainerRangeCutoff(range);
 	if (cutoff === null) return sorted;
@@ -4698,28 +4760,29 @@ async function recommendGoalPlanWithAI() {
 	}
 }
 
-async function estimateCaloriesWithAI(noteText) {
+async function estimateCaloriesWithAI(foodDetails) {
+	const nutritionDetails = String(foodDetails || "").trim();
 	const nutritionPrompt = [
 		"You are a precise nutritional expert.",
-		"Analyze the food information provided and reason through each nutrient carefully.",
+		"Analyze only the foodDetails value provided and reason through each nutrient carefully.",
 		"After your analysis, output ONLY valid JSON with this exact shape:",
 		'{"calories": number|null, "macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}.',
-		"If the note includes structured nutrition-label details such as serving information or listed nutrient values, extract those exact nutrition-facts values when possible.",
+		"If foodDetails includes structured nutrition-label details such as serving information or listed nutrient values, extract those exact nutrition-facts values when possible.",
 		"Use milligrams for sodium/potassium/calcium/iron/magnesium/zinc/vitaminC/vitaminB6 and micrograms for vitaminA/vitaminD/vitaminB12.",
 		"Use numbers only, no units, no extra keys, no markdown, no explanation.",
 		"If unknown, use null.",
 		"Your final response must be the JSON object and nothing else.",
 	].join(" ");
 
-	if (!noteText?.trim()) {
-		showToast("Please enter food information in the note first");
+	if (!nutritionDetails) {
+		showToast("Please enter food or label details for the AI estimate first");
 		return null;
 	}
 
 	try {
 		const data = await callAIChatCompletions({
 			systemPrompt: nutritionPrompt,
-			userPrompt: noteText,
+			userPrompt: JSON.stringify({ foodDetails: nutritionDetails }, null, 2),
 			purpose: "AI nutrition estimate",
 			withReasoningFallback: true,
 		});
@@ -5260,7 +5323,7 @@ function initButtons() {
 		showToast("Applied AI goal recommendations");
 	});
 	$("note-editor-ai-estimate").addEventListener("click", async () => {
-		const noteContent = $("note-editor-content").value;
+		const foodDetails = getNoteEditorFoodDetails();
 		const button = $("note-editor-ai-estimate");
 		const originalHTML = button.innerHTML;
 
@@ -5269,7 +5332,7 @@ function initButtons() {
 		button.innerHTML =
 			'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>';
 
-		const estimatedNutrition = await estimateCaloriesWithAI(noteContent);
+		const estimatedNutrition = await estimateCaloriesWithAI(foodDetails);
 
 		// Re-enable button and restore original icon
 		button.disabled = false;
@@ -6803,6 +6866,7 @@ function buildNoteCard(note) {
 
 	const hasCalorieEntry = Boolean(note.calorieEntry);
 	if (hasCalorieEntry) {
+		const foodDetails = note.calorieEntry?.foodNote?.trim() || "";
 		const entry = document.createElement("div");
 		entry.className = "note-calorie-entry";
 
@@ -6828,7 +6892,7 @@ function buildNoteCard(note) {
 
 		const entryText = document.createElement("div");
 		entryText.className = "note-calorie-text";
-		entryText.textContent = displayText || "Nutrition entry";
+		entryText.textContent = foodDetails || displayText || "Nutrition entry";
 		detailWrap.appendChild(entryText);
 
 		const nutritionRow = document.createElement("div");
@@ -6842,6 +6906,16 @@ function buildNoteCard(note) {
 		entry.appendChild(calorieBox);
 		entry.appendChild(detailWrap);
 		card.appendChild(entry);
+		if (foodDetails && displayText && displayText !== foodDetails) {
+			if (isAITrainer || note.metadata?.contentFormat === "markdown") {
+				card.appendChild(buildMarkdownNoteContent(displayText));
+			} else {
+				const text = document.createElement("div");
+				text.className = "text-default whitespace-pre-wrap text-sm md:text-xs";
+				text.textContent = displayText;
+				card.appendChild(text);
+			}
+		}
 	} else {
 		if (isAITrainer || note.metadata?.contentFormat === "markdown") {
 			card.appendChild(buildMarkdownNoteContent(displayText || "Untitled note"));

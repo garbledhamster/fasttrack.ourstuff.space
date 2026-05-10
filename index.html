@@ -567,7 +567,7 @@
             </div>
             <div>
               <label class="block text-sm md:text-xs text-muted mb-1" for="openai-notes-range">Notes to send to trainer</label>
-              <input id="openai-notes-range" type="range" min="0" max="6" step="1" class="w-full accent-brand-500">
+              <input id="openai-notes-range" type="range" min="0" max="18" step="1" class="w-full accent-brand-500">
               <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
                 <span>No notes</span>
                 <span id="openai-notes-range-label" class="font-medium text-default">No notes</span>
@@ -587,7 +587,7 @@
             </div>
             <div>
               <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-notes-range">Notes to send to trainer</label>
-              <input id="byo-llm-notes-range" type="range" min="0" max="6" step="1" class="w-full accent-brand-500">
+              <input id="byo-llm-notes-range" type="range" min="0" max="18" step="1" class="w-full accent-brand-500">
               <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
                 <span>No notes</span>
                 <span id="byo-llm-notes-range-label" class="font-medium text-default">No notes</span>
@@ -927,7 +927,11 @@
         <label for="note-editor-trainer-response" class="block text-sm md:text-xs text-muted mb-1">Response note</label>
         <textarea id="note-editor-trainer-response" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Reply to the trainer or leave feedback on this response."></textarea>
       </div>
-      <label for="note-editor-calories" class="block text-sm md:text-xs text-muted mb-1 mt-3">Calories</label>
+      <div class="mb-3 mt-3">
+        <label for="note-editor-food-details" class="block text-sm md:text-xs text-muted mb-1">Food details</label>
+        <textarea id="note-editor-food-details" rows="3" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="e.g. 2 eggs, toast, banana"></textarea>
+      </div>
+      <label for="note-editor-calories" class="block text-sm md:text-xs text-muted mb-1">Calories</label>
       <div class="flex gap-2">
         <input id="note-editor-calories" type="number" min="0" step="1" class="flex-1 surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="0">
         <button id="note-editor-ai-estimate" type="button" class="ai-estimate-btn surface border border-default rounded-xl px-3 py-3 md:py-2 text-brand-500 hover:bg-brand-500/10 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-colors" aria-label="Fill nutrition facts with AI" title="Fill nutrition facts with AI">
