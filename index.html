@@ -547,22 +547,44 @@
               <textarea id="byo-llm-headers" rows="3" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono" placeholder="{&quot;X-API-Version&quot;:&quot;2025-01-01&quot;}"></textarea>
             </div>
           </div>
-          <div>
-            <label class="block text-sm md:text-xs text-muted mb-1" for="openai-trainer-instructions">AI Trainer Instructions</label>
-            <textarea id="openai-trainer-instructions" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Share nutrition preferences, dietary needs, injuries, limitations, allergies, and coaching style."></textarea>
-            <p class="text-xs md:text-[11px] text-subtle mt-1">
-              These instructions are sent to OpenAI only when you use AI features.
-              FastTrack stores only what you enter, encrypted and secured in your account,
-              and decrypts it only with your password.
-            </p>
+          <div id="openai-trainer-settings-panel" class="space-y-3">
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="openai-trainer-instructions">AI Trainer Instructions</label>
+              <textarea id="openai-trainer-instructions" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Share nutrition preferences, dietary needs, injuries, limitations, allergies, and coaching style."></textarea>
+              <p class="text-xs md:text-[11px] text-subtle mt-1">
+                These instructions are sent to OpenAI only when you use AI features.
+                FastTrack stores only what you enter, encrypted and secured in your account,
+                and decrypts it only with your password.
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="openai-notes-range">Notes to send to trainer</label>
+              <input id="openai-notes-range" type="range" min="0" max="6" step="1" class="w-full accent-brand-500">
+              <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
+                <span>No notes</span>
+                <span id="openai-notes-range-label" class="font-medium text-default">No notes</span>
+                <span>All notes</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <label class="block text-sm md:text-xs text-muted mb-1" for="openai-notes-range">Notes to send to trainer</label>
-            <input id="openai-notes-range" type="range" min="0" max="6" step="1" class="w-full accent-brand-500">
-            <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
-              <span>No notes</span>
-              <span id="openai-notes-range-label" class="font-medium text-default">No notes</span>
-              <span>All notes</span>
+          <div id="byo-trainer-settings-panel" class="space-y-3 hidden">
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-trainer-instructions">AI Trainer Instructions</label>
+              <textarea id="byo-llm-trainer-instructions" rows="4" class="w-full surface border border-default rounded-xl px-3 py-3 md:py-2 text-sm md:text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" placeholder="Share nutrition preferences, dietary needs, injuries, limitations, allergies, and coaching style."></textarea>
+              <p class="text-xs md:text-[11px] text-subtle mt-1">
+                These instructions are sent to your BYO endpoint only when you use AI features.
+                FastTrack stores only what you enter, encrypted and secured in your account,
+                and decrypts it only with your password.
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm md:text-xs text-muted mb-1" for="byo-llm-notes-range">Notes to send to trainer</label>
+              <input id="byo-llm-notes-range" type="range" min="0" max="6" step="1" class="w-full accent-brand-500">
+              <div class="flex justify-between text-xs md:text-[11px] text-subtle mt-1">
+                <span>No notes</span>
+                <span id="byo-llm-notes-range-label" class="font-medium text-default">No notes</span>
+                <span>All notes</span>
+              </div>
             </div>
           </div>
         </div>
