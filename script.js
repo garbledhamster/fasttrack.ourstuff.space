@@ -277,8 +277,6 @@ const OPENAI_REASONING_EFFORTS = new Set([
 	"high",
 	"xhigh",
 ]);
-const OPENAI_TOOL_OPTIONS = new Set(["none", "nutrition_function"]);
-
 const defaultState = {
 	settings: {
 		defaultFastTypeId: "16_8",
@@ -290,7 +288,6 @@ const defaultState = {
 		openaiApiKey: "",
 		openaiModel: DEFAULT_OPENAI_MODEL,
 		openaiReasoningEffort: "none",
-		openaiTool: "none",
 		calories: {
 			dailyTarget: null,
 			goal: "",
@@ -1553,7 +1550,6 @@ function mergeStateWithDefaults(parsed) {
 	merged.settings.openaiReasoningEffort = normalizeOpenAIReasoningEffort(
 		merged.settings.openaiReasoningEffort,
 	);
-	merged.settings.openaiTool = normalizeOpenAITool(merged.settings.openaiTool);
 	merged.activeFast = parsed.activeFast || null;
 	merged.history = Array.isArray(parsed.history) ? parsed.history : [];
 	merged.reminders = Object.assign(merged.reminders, parsed.reminders || {});
@@ -3409,12 +3405,6 @@ function normalizeOpenAIReasoningEffort(value) {
 	return OPENAI_REASONING_EFFORTS.has(next) ? next : "none";
 }
 
-function normalizeOpenAITool(value) {
-	if (!value) return "none";
-	const next = String(value).trim().toLowerCase();
-	return OPENAI_TOOL_OPTIONS.has(next) ? next : "none";
-}
-
 function sanitizeBearerToken(value) {
 	const token = String(value || "").trim();
 	if (!token || /[\r\n]/.test(token)) return "";
@@ -3520,7 +3510,6 @@ async function estimateCaloriesWithAI(noteText) {
 	const reasoningEffort = normalizeOpenAIReasoningEffort(
 		state.settings.openaiReasoningEffort,
 	);
-	const selectedTool = normalizeOpenAITool(state.settings.openaiTool);
 	const nutritionPrompt = [
 		"You are a precise nutritional expert.",
 		"Return ONLY valid JSON with this exact shape:",
@@ -3555,64 +3544,13 @@ async function estimateCaloriesWithAI(noteText) {
 				},
 			],
 			temperature: 0.3,
-			max_tokens: 320,
+			max_completion_tokens: 320,
 		};
 		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
 			requestBody.reasoning_effort = reasoningEffort;
 			resetReasoningSupportToast();
 		} else if (reasoningEffort !== "none") {
 			showReasoningUnsupportedToastOnce();
-		}
-		if (selectedTool === "nutrition_function") {
-			requestBody.tools = [
-				{
-					type: "function",
-					function: {
-						name: "estimate_nutrition",
-						description:
-							"Return estimated calories and nutrients using the required JSON shape.",
-						parameters: {
-							type: "object",
-							properties: {
-								calories: { type: "number" },
-								macros: {
-									type: "object",
-									properties: {
-										protein: { type: "number" },
-										carbs: { type: "number" },
-										fat: { type: "number" },
-									},
-								},
-								micros: {
-									type: "object",
-									properties: {
-										sodium: { type: "number" },
-										potassium: { type: "number" },
-										calcium: { type: "number" },
-										iron: { type: "number" },
-										magnesium: { type: "number" },
-										zinc: { type: "number" },
-									},
-								},
-								vitamins: {
-									type: "object",
-									properties: {
-										vitaminA: { type: "number" },
-										vitaminC: { type: "number" },
-										vitaminD: { type: "number" },
-										vitaminB6: { type: "number" },
-										vitaminB12: { type: "number" },
-									},
-								},
-							},
-						},
-					},
-				},
-			];
-			requestBody.tool_choice = {
-				type: "function",
-				function: { name: "estimate_nutrition" },
-			};
 		}
 		const response = await fetch("https://api.openai.com/v1/chat/completions", {
 			method: "POST",
@@ -3766,10 +3704,6 @@ function initButtons() {
 			event.target.value,
 		);
 		resetReasoningSupportToast();
-		void saveState();
-	});
-	$("openai-tool-select").addEventListener("change", (event) => {
-		state.settings.openaiTool = normalizeOpenAITool(event.target.value);
 		void saveState();
 	});
 
@@ -4088,7 +4022,6 @@ function renderSettings() {
 	const unitSelect = $("calorie-unit-system");
 	const unitSystem = getCalorieUnitSystem();
 	const reasoningSelect = $("openai-reasoning-effort");
-	const toolSelect = $("openai-tool-select");
 	const apiKey = state.settings.openaiApiKey?.trim();
 	$("default-fast-select").value = resolveFastTypeId(
 		state.settings.defaultFastTypeId,
@@ -4109,9 +4042,6 @@ function renderSettings() {
 		reasoningSelect.value = normalizeOpenAIReasoningEffort(
 			state.settings.openaiReasoningEffort,
 		);
-	}
-	if (toolSelect) {
-		toolSelect.value = normalizeOpenAITool(state.settings.openaiTool);
 	}
 	if (syncReasoningSettingForModel()) void saveState();
 	$("theme-preset-select").value = presetId;
