@@ -1398,7 +1398,7 @@ body.bg-slate-950 {
 }
 
 .trainer-options-panel.is-open {
-	max-height: 1600px;
+	max-height: 2400px;
 }
 
 .trainer-options-toggle {
