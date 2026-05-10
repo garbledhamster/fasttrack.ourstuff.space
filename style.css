@@ -1177,10 +1177,15 @@ body.bg-slate-950 {
 
 /* Notes list scroll styling */
 .notes-drawer-content {
+	--notes-drawer-top-spacing: 12px;
 	scrollbar-gutter: stable;
 	scrollbar-width: thin;
 	scrollbar-color: rgb(148, 163, 184, 0.6) rgb(15, 23, 42, 0.6);
 	padding-right: 15px;
+}
+
+.notes-drawer-content--notes {
+	padding-top: var(--notes-drawer-top-spacing);
 }
 
 .notes-drawer-content::-webkit-scrollbar {
@@ -1190,7 +1195,7 @@ body.bg-slate-950 {
 .notes-drawer-content::-webkit-scrollbar-track {
 	background: rgb(15, 23, 42, 0.6);
 	border-radius: 999px;
-	margin: 8px 0;
+	margin: var(--notes-drawer-top-spacing) 0 8px;
 }
 
 .notes-drawer-content::-webkit-scrollbar-thumb {
@@ -1214,6 +1219,18 @@ body.bg-slate-950 {
 /* open state */
 .notes-drawer.is-open .notes-drawer-panel {
 	transform: translateX(0);
+}
+
+.notes-drawer-menu--notes {
+	padding-bottom: 18px;
+}
+
+.notes-drawer-menu--notes .trainer-note-range-block {
+	margin-top: 0.25rem;
+}
+
+.notes-drawer-menu--notes .trainer-filter-panel {
+	margin-top: 0.75rem;
 }
 
 /* Note editor (must be ABOVE the notes drawer) */
