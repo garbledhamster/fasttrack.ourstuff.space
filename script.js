@@ -7220,7 +7220,7 @@ function renderTrainerQuickQuestionInput() {
 		input.value,
 		TRAINER_QUICK_QUESTION_MAX_CHARS,
 	);
-	count.textContent = `${Math.min(input.value.length, TRAINER_QUICK_QUESTION_MAX_CHARS)} / ${TRAINER_QUICK_QUESTION_MAX_CHARS}`;
+	count.textContent = `${trimmed.length} / ${TRAINER_QUICK_QUESTION_MAX_CHARS}`;
 	sendButton.disabled =
 		!trimmed || Boolean(quickTrainerQuestionAbortController);
 }
