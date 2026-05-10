@@ -270,13 +270,7 @@ const OPENAI_ALLOWED_MODELS = Object.freeze([
 	"gpt-5.4-mini",
 ]);
 const DEFAULT_OPENAI_MODEL = OPENAI_ALLOWED_MODELS[0];
-const OPENAI_REASONING_EFFORTS = new Set([
-	"none",
-	"low",
-	"medium",
-	"high",
-	"xhigh",
-]);
+const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
 const defaultState = {
 	settings: {
 		defaultFastTypeId: "16_8",
@@ -3512,12 +3506,14 @@ async function estimateCaloriesWithAI(noteText) {
 	);
 	const nutritionPrompt = [
 		"You are a precise nutritional expert.",
-		"Return ONLY valid JSON with this exact shape:",
+		"Analyze the food information provided and reason through each nutrient carefully.",
+		"After your analysis, output ONLY valid JSON with this exact shape:",
 		'{"calories": number|null, "macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}.',
 		"If the note includes structured nutrition-label details such as serving information or listed nutrient values, extract those exact nutrition-facts values when possible.",
 		"Use milligrams for sodium/potassium/calcium/iron/magnesium/zinc/vitaminC/vitaminB6 and micrograms for vitaminA/vitaminD/vitaminB12.",
 		"Use numbers only, no units, no extra keys, no markdown, no explanation.",
 		"If unknown, use null.",
+		"Your final response must be the JSON object and nothing else.",
 	].join(" ");
 
 	if (!apiKey) {
@@ -3531,6 +3527,8 @@ async function estimateCaloriesWithAI(noteText) {
 	}
 
 	try {
+		const usingReasoning =
+			reasoningEffort !== "none" && supportsReasoningEffort(model);
 		const requestBody = {
 			model,
 			messages: [
@@ -3543,10 +3541,12 @@ async function estimateCaloriesWithAI(noteText) {
 					content: noteText,
 				},
 			],
-			temperature: 1,
-			max_completion_tokens: 320,
+			max_completion_tokens: usingReasoning ? 4096 : 320,
 		};
-		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
+		if (!usingReasoning) {
+			requestBody.temperature = 1;
+		}
+		if (usingReasoning) {
 			requestBody.reasoning_effort = reasoningEffort;
 			resetReasoningSupportToast();
 		} else if (reasoningEffort !== "none") {
