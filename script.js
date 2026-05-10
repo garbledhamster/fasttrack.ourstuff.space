@@ -270,7 +270,7 @@ const OPENAI_ALLOWED_MODELS = Object.freeze([
 	"gpt-5.4-mini",
 ]);
 const DEFAULT_OPENAI_MODEL = OPENAI_ALLOWED_MODELS[0];
-const LLM_PROVIDERS = new Set(["openai", "byo"]);
+const SUPPORTED_LLM_PROVIDERS = new Set(["openai", "byo"]);
 const DEFAULT_LLM_PROVIDER = "openai";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
 const OPENAI_MAX_TOKENS_WITH_REASONING = 4096;
@@ -3871,11 +3871,19 @@ function normalizeOpenAIModel(value) {
 		: DEFAULT_OPENAI_MODEL;
 }
 
+/**
+ * Normalize a persisted/provider input value to a supported LLM provider id.
+ * Returns the default provider when the input is missing or unsupported.
+ * @param {unknown} value
+ * @returns {"openai"|"byo"}
+ */
 function normalizeLLMProvider(value) {
 	const normalized = String(value || "")
 		.trim()
 		.toLowerCase();
-	return LLM_PROVIDERS.has(normalized) ? normalized : DEFAULT_LLM_PROVIDER;
+	return SUPPORTED_LLM_PROVIDERS.has(normalized)
+		? normalized
+		: DEFAULT_LLM_PROVIDER;
 }
 
 function normalizeOpenAIReasoningEffort(value) {
@@ -4141,7 +4149,11 @@ async function callAIChatCompletions({
 }) {
 	const config = getAIProviderSettings();
 	if (!config.apiUrl) {
-		showToast("Please add your BYO API endpoint in settings first");
+		showToast(
+			config.provider === "openai"
+				? "OpenAI API endpoint is missing in settings"
+				: "Please add your BYO API endpoint in settings first",
+		);
 		return null;
 	}
 	if (!config.model) {
@@ -4171,7 +4183,9 @@ async function callAIChatCompletions({
 			{ role: "user", content: userPrompt },
 		],
 		max_completion_tokens: usingReasoning
-			? Math.max(config.maxCompletionTokens, OPENAI_MAX_TOKENS_WITH_REASONING)
+			? config.provider === "openai"
+				? Math.max(config.maxCompletionTokens, OPENAI_MAX_TOKENS_WITH_REASONING)
+				: config.maxCompletionTokens
 			: config.maxCompletionTokens,
 	};
 	if (usingReasoning) {
