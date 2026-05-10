@@ -266,7 +266,11 @@ const NUTRIENT_DECIMAL_THRESHOLD = 100;
 const NUTRIENT_NUMBER_FORMAT = new Intl.NumberFormat();
 const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
-const OPENAI_TOOL_OPTIONS = new Set(["none", "nutrition_function"]);
+const OPENAI_TOOL_OPTIONS = new Set([
+	"none",
+	"web_search_preview",
+	"code_interpreter",
+]);
 const OPENAI_LATEST_MODEL_PREFIXES = Object.freeze([
 	"gpt-5",
 	"gpt-4.1",
@@ -3427,7 +3431,11 @@ function supportsReasoningEffort(modelId) {
 	const normalized = String(modelId || "")
 		.trim()
 		.toLowerCase();
+<<<<<<< HEAD
 	return /^o[13](-|$)/.test(normalized);
+=======
+	return normalized.startsWith("o") || normalized.startsWith("gpt-5");
+>>>>>>> parent of 08feaf4 (Align OpenAI request payload and tool mode with chat completions)
 }
 
 function compareOpenAIModelOptions(left, right) {
@@ -3452,6 +3460,25 @@ function compareOpenAIModelOptions(left, right) {
 		sensitivity: "base",
 		numeric: true,
 	});
+}
+
+function extractResponseText(responsePayload) {
+	if (typeof responsePayload?.output_text === "string") {
+		const text = responsePayload.output_text.trim();
+		if (text) return text;
+	}
+	const outputItems = Array.isArray(responsePayload?.output)
+		? responsePayload.output
+		: [];
+	const contentTexts = outputItems.flatMap((item) =>
+		Array.isArray(item?.content)
+			? item.content
+					.filter((contentItem) => contentItem?.type === "output_text")
+					.map((contentItem) => String(contentItem?.text || "").trim())
+					.filter(Boolean)
+			: [],
+	);
+	return contentTexts.join("\n").trim();
 }
 
 function resetReasoningSupportToast() {
@@ -3609,7 +3636,7 @@ async function estimateCaloriesWithAI(noteText) {
 	try {
 		const requestBody = {
 			model,
-			messages: [
+			input: [
 				{
 					role: "system",
 					content: nutritionPrompt,
@@ -3620,14 +3647,15 @@ async function estimateCaloriesWithAI(noteText) {
 				},
 			],
 			temperature: 0.3,
-			max_tokens: 320,
+			max_output_tokens: 320,
 		};
 		if (reasoningEffort !== "none" && supportsReasoningEffort(model)) {
-			requestBody.reasoning_effort = reasoningEffort;
+			requestBody.reasoning = { effort: reasoningEffort };
 			resetReasoningSupportToast();
 		} else if (reasoningEffort !== "none") {
 			showReasoningUnsupportedToastOnce();
 		}
+<<<<<<< HEAD
 		if (selectedTool === "nutrition_function") {
 			requestBody.tools = [
 				{
@@ -3678,8 +3706,12 @@ async function estimateCaloriesWithAI(noteText) {
 				type: "function",
 				function: { name: "estimate_nutrition" },
 			};
+=======
+		if (selectedTool !== "none") {
+			requestBody.tools = [{ type: selectedTool }];
+>>>>>>> parent of 08feaf4 (Align OpenAI request payload and tool mode with chat completions)
 		}
-		const response = await fetch("https://api.openai.com/v1/chat/completions", {
+		const response = await fetch("https://api.openai.com/v1/responses", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -3696,15 +3728,7 @@ async function estimateCaloriesWithAI(noteText) {
 		}
 
 		const data = await response.json();
-		let aiText = data.choices[0]?.message?.content?.trim() || "";
-		if (!aiText) {
-			const toolCall = data.choices[0]?.message?.tool_calls?.find(
-				(call) => call?.function?.name === "estimate_nutrition",
-			);
-			if (typeof toolCall?.function?.arguments === "string") {
-				aiText = toolCall.function.arguments.trim();
-			}
-		}
+		const aiText = extractResponseText(data);
 
 		if (!aiText) {
 			showToast("No response from AI");
