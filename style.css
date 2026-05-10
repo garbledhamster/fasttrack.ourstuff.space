@@ -1224,6 +1224,14 @@ body.bg-slate-950 {
 	padding-bottom: 18px;
 }
 
+.notes-drawer-menu--notes .trainer-note-range-block {
+	margin-top: 0.25rem;
+}
+
+.notes-drawer-menu--notes .trainer-filter-panel {
+	margin-top: 0.75rem;
+}
+
 /* Note editor (must be ABOVE the notes drawer) */
 .note-editor-modal {
 	position: fixed;
