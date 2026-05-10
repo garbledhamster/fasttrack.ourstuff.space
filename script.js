@@ -3905,6 +3905,14 @@ const OPENAI_NOTES_RANGE_LABELS = [
 	"This year's notes",
 	"All notes",
 ];
+const AI_TRAINER_NOTE_PROMPT = [
+	"You are a practical, supportive personal trainer and nutrition coach.",
+	"Write a concise trainer summary note with constructive personal feedback.",
+	"Focus on actionable next steps for nutrition, fasting routine, exercise, and recovery.",
+	"Respect user instructions, dietary needs, injuries, and limitations.",
+	"Keep output light and actionable: max 4 short bullet points, no markdown headings, no fluff.",
+	"If information is missing, give safe, realistic suggestions and mention uncertainty briefly.",
+].join(" ");
 
 function normalizeOpenAINotesRange(value) {
 	const n = Number(value);
@@ -4361,14 +4369,6 @@ async function generateTrainerNoteWithAI() {
 	const todayKey = formatDateKey(new Date());
 	const todayCalories = getNoteCaloriesForDateKey(todayKey);
 	const todayNutrition = formatNutritionInlineSummary(todayKey);
-	const trainerPrompt = [
-		"You are a practical, supportive personal trainer and nutrition coach.",
-		"Write a concise trainer summary note with constructive personal feedback.",
-		"Focus on actionable next steps for nutrition, fasting routine, exercise, and recovery.",
-		"Respect user instructions, dietary needs, injuries, and limitations.",
-		"Keep output light and actionable: max 4 short bullet points, no markdown headings, no fluff.",
-		"If information is missing, give safe, realistic suggestions and mention uncertainty briefly.",
-	].join(" ");
 	const userPayload = JSON.stringify(
 		{
 			profile,
@@ -4386,7 +4386,7 @@ async function generateTrainerNoteWithAI() {
 	);
 	try {
 		const data = await callAIChatCompletions({
-			systemPrompt: trainerPrompt,
+			systemPrompt: AI_TRAINER_NOTE_PROMPT,
 			userPrompt: userPayload,
 			purpose: "AI trainer note",
 			withReasoningFallback: true,
@@ -4410,7 +4410,7 @@ async function generateTrainerNoteWithAI() {
 	} catch (error) {
 		console.error("Error calling AI API:", error);
 		showToast(
-			"Failed to generate trainer note. Check your internet connection.",
+			"Failed to generate trainer note. Please try again or check your AI settings.",
 		);
 		return null;
 	}
