@@ -437,6 +437,25 @@
                 <span>All notes</span>
               </div>
             </div>
+            <section class="trainer-provider-override-panel" aria-labelledby="trainer-provider-override-title">
+              <div class="trainer-provider-override-header">
+                <div>
+                  <h3 id="trainer-provider-override-title" class="trainer-provider-override-title">Model override</h3>
+                  <div id="trainer-provider-override-subtitle" class="trainer-provider-override-subtitle">Global default: OpenAI</div>
+                </div>
+                <button id="ai-trainer-provider-override-clear" type="button" class="trainer-provider-override-clear">USE DEFAULT</button>
+              </div>
+              <div class="trainer-provider-override-options" role="radiogroup" aria-label="Override AI trainer model provider">
+                <label class="trainer-provider-override-option">
+                  <input id="ai-trainer-provider-override-openai" type="radio" name="ai-trainer-provider-override" value="openai" class="accent-brand-500">
+                  <span>OpenAI</span>
+                </label>
+                <label class="trainer-provider-override-option">
+                  <input id="ai-trainer-provider-override-byo" type="radio" name="ai-trainer-provider-override" value="byo" class="accent-brand-500">
+                  <span>Custom model</span>
+                </label>
+              </div>
+            </section>
             <section class="trainer-filter-panel" aria-labelledby="trainer-note-filters-title">
               <div class="trainer-filter-header">
                 <div>
@@ -475,6 +494,15 @@
                   </span>
                 </button>
               </div>
+            </section>
+            <section class="trainer-question-panel" aria-labelledby="trainer-quick-question-title">
+              <div class="trainer-question-header">
+                <h3 id="trainer-quick-question-title" class="trainer-question-title">Quick Question for your Trainer</h3>
+                <span id="trainer-quick-question-count" class="trainer-question-count">0 / 500</span>
+              </div>
+              <textarea id="trainer-quick-question-input" rows="3" maxlength="500" class="trainer-question-input" placeholder="Ask one clear question (up to one paragraph)."></textarea>
+              <p class="trainer-question-help">You'll get one paragraph back and it will be saved as an AI trainer note.</p>
+              <button id="trainer-quick-question-send" type="button" class="w-full py-3 md:py-2.5 rounded-xl button-accent border text-sm md:text-xs font-semibold">Send</button>
             </section>
           </div>
 
