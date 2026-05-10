@@ -385,11 +385,9 @@ let bodyOverflowBeforeNotes = null;
 let notesSwipeHandlersAttached = false;
 let historyProgressOverlayOpen = false;
 let historyProgressPortal = null;
-let historyProgressBackdrop = null;
 let historyProgressDrawerCloseTimeout = null;
 let nutritionProgressOverlayOpen = false;
 let nutritionProgressPortal = null;
-let nutritionProgressBackdrop = null;
 let nutritionProgressDrawerCloseTimeout = null;
 let bodyOverflowBeforeSecondaryDrawers = null;
 let secondaryDrawerEscapeHandlerAttached = false;
@@ -2522,18 +2520,15 @@ function closeNotesDrawer(forceImmediate = false) {
 function ensureSecondaryDrawerOverlay(drawerType) {
 	let drawer = null;
 	let portalRef = null;
-	let backdropRef = null;
 	let closeFn = null;
 
 	if (drawerType === "history") {
 		drawer = $("history-progress-drawer");
 		portalRef = historyProgressPortal;
-		backdropRef = historyProgressBackdrop;
 		closeFn = () => closeHistoryProgressDrawer();
 	} else if (drawerType === "nutrition") {
 		drawer = $("nutrition-progress-drawer");
 		portalRef = nutritionProgressPortal;
-		backdropRef = nutritionProgressBackdrop;
 		closeFn = () => closeNutritionProgressDrawer();
 	}
 
@@ -2580,10 +2575,8 @@ function ensureSecondaryDrawerOverlay(drawerType) {
 
 	if (drawerType === "history") {
 		historyProgressPortal = portal;
-		historyProgressBackdrop = backdrop;
 	} else if (drawerType === "nutrition") {
 		nutritionProgressPortal = portal;
-		nutritionProgressBackdrop = backdrop;
 	}
 
 	if (!secondaryDrawerEscapeHandlerAttached) {
