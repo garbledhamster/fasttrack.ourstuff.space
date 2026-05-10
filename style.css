@@ -227,7 +227,8 @@ body.bg-slate-950 {
 }
 
 .trainer-filter-panel {
-	border: 1px solid color-mix(in srgb, var(--text-subtle-color) 35%, var(--border-color));
+	border: 1px solid
+		color-mix(in srgb, var(--text-subtle-color) 35%, var(--border-color));
 	border-radius: 16px;
 	background: color-mix(
 		in srgb,
@@ -407,7 +408,8 @@ body.bg-slate-950 {
 
 .trainer-filter-clear {
 	flex: 0 0 auto;
-	border: 1px solid color-mix(in srgb, var(--text-subtle-color) 35%, var(--border-color));
+	border: 1px solid
+		color-mix(in srgb, var(--text-subtle-color) 35%, var(--border-color));
 	border-radius: 999px;
 	background: var(--surface-color);
 	color: var(--text-subtle-color);
@@ -433,7 +435,8 @@ body.bg-slate-950 {
 	display: flex;
 	align-items: flex-start;
 	padding: 9px;
-	border: 1px solid color-mix(in srgb, var(--text-subtle-color) 25%, var(--border-color));
+	border: 1px solid
+		color-mix(in srgb, var(--text-subtle-color) 25%, var(--border-color));
 	border-radius: 12px;
 	background: var(--surface-color);
 	color: var(--text-subtle-color);
@@ -446,7 +449,11 @@ body.bg-slate-950 {
 
 .trainer-filter-btn.is-active {
 	border-color: var(--text-subtle-color);
-	background: color-mix(in srgb, var(--text-subtle-color) 15%, var(--surface-color));
+	background: color-mix(
+		in srgb,
+		var(--text-subtle-color) 15%,
+		var(--surface-color)
+	);
 }
 
 .trainer-filter-btn:focus-visible,
@@ -1381,17 +1388,68 @@ body.bg-slate-950 {
 	padding-bottom: 18px;
 }
 
-.notes-drawer-menu--notes .trainer-note-range-block {
-	margin-top: 0.25rem;
+.trainer-options-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	overflow: hidden;
+	max-height: 0;
+	transition: max-height 0.35s ease;
 }
 
-.notes-drawer-menu--notes .trainer-filter-panel {
-	margin-top: 0.75rem;
+.trainer-options-panel.is-open {
+	max-height: 1600px;
 }
 
-.notes-drawer-menu--notes .trainer-provider-override-panel,
-.notes-drawer-menu--notes .trainer-question-panel {
-	margin-top: 0.75rem;
+.trainer-options-toggle {
+	width: 100%;
+	display: block;
+	padding: 9px 12px;
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	background: color-mix(
+		in srgb,
+		var(--surface-color) 70%,
+		var(--background-color)
+	);
+	color: var(--text-subtle-color);
+	font-size: 0.7rem;
+	font-weight: 750;
+	letter-spacing: 0.04em;
+	text-align: center;
+	text-transform: uppercase;
+	cursor: pointer;
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease,
+		color 0.15s ease;
+}
+
+.trainer-options-toggle:hover {
+	background: color-mix(
+		in srgb,
+		var(--surface-color) 90%,
+		var(--secondary-color)
+	);
+	border-color: color-mix(
+		in srgb,
+		var(--border-color) 60%,
+		var(--secondary-color)
+	);
+	color: var(--text-muted-color);
+}
+
+.trainer-options-toggle:focus-visible {
+	outline: 2px solid var(--secondary-color);
+	outline-offset: 2px;
+}
+
+.trainer-options-toggle.is-open {
+	border-color: color-mix(
+		in srgb,
+		var(--border-color) 50%,
+		var(--secondary-color)
+	);
 }
 
 /* Note editor (must be ABOVE the notes drawer) */
