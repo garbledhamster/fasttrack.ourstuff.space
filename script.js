@@ -5825,7 +5825,7 @@ function getHistoryTrendEntries(selectedDate, dayCount = 7) {
 	return entries;
 }
 
-function getSafeDurationHours(entry, startTs, endTs) {
+function resolveDurationHours(entry, startTs, endTs) {
 	const numericDuration = Number(entry?.durationHours);
 	if (Number.isFinite(numericDuration)) return numericDuration;
 	return computeDurationHours(startTs, endTs) ?? 0;
@@ -5903,7 +5903,7 @@ function renderHistoryProgressAnalytics(day) {
 		{
 			label: "Fasts logged",
 			value: `${day?.entries?.length ?? 0}`,
-			meta: "Sessions on selected day",
+			meta: "Sessions on the selected day",
 		},
 		{
 			label: "Hours total",
@@ -5938,19 +5938,23 @@ function renderDayDetails() {
 	list.innerHTML = "";
 
 	if (!day) {
-		summary.textContent = "No fasts logged for this day.";
+		summary.textContent = "No fasts logged for this day";
 		renderHistoryProgressAnalytics(null);
 		return;
 	}
 
+	const SUMMARY_SEPARATOR = " • ";
 	const dayNoteCalories = getNoteCaloriesForDateKey(selectedDayKey);
 	const calorieSummary =
 		Number.isFinite(dayNoteCalories) && dayNoteCalories > 0
-			? ` • ${formatCalories(dayNoteCalories)} calories`
+			? `${SUMMARY_SEPARATOR}${formatCalories(dayNoteCalories)} calories`
 			: "";
 	const nutritionSummary = formatNutritionInlineSummary(selectedDayKey);
-	const nutritionTail = nutritionSummary ? ` • ${nutritionSummary}` : "";
-	summary.textContent = `${day.entries.length} session(s) • ${day.totalHours.toFixed(1)} total hours${calorieSummary}${nutritionTail}`;
+	const nutritionTail = nutritionSummary
+		? `${SUMMARY_SEPARATOR}${nutritionSummary}`
+		: "";
+	const sessionLabel = day.entries.length === 1 ? "session" : "sessions";
+	summary.textContent = `${day.entries.length} ${sessionLabel}${SUMMARY_SEPARATOR}${day.totalHours.toFixed(1)} total hours${calorieSummary}${nutritionTail}`;
 	renderHistoryProgressAnalytics(day);
 
 	day.entries.forEach((e) => {
@@ -5974,7 +5978,7 @@ function renderDayDetails() {
 		const title = document.createElement("div");
 		title.className = "history-fast-title";
 		const label = type ? type.label : "Custom";
-		const durationHours = getSafeDurationHours(e, displayStart, displayEnd);
+		const durationHours = resolveDurationHours(e, displayStart, displayEnd);
 		title.textContent = e.isActive
 			? `Active • ${label} fast`
 			: `${label} • ${durationHours.toFixed(1)}h`;
@@ -6244,14 +6248,14 @@ function renderRecentFasts() {
 	const maxDuration = Math.max(
 		1,
 		...recentEntries.map((entry) =>
-			getSafeDurationHours(entry, entry.startTimestamp, entry.endTimestamp),
+			resolveDurationHours(entry, entry.startTimestamp, entry.endTimestamp),
 		),
 	);
 	const averageDuration =
 		recentEntries.reduce(
 			(sum, entry) =>
 				sum +
-				getSafeDurationHours(entry, entry.startTimestamp, entry.endTimestamp),
+				resolveDurationHours(entry, entry.startTimestamp, entry.endTimestamp),
 			0,
 		) / recentEntries.length;
 
@@ -6262,7 +6266,7 @@ function renderRecentFasts() {
 		const type = getTypeById(e.typeId);
 		const title = document.createElement("div");
 		title.className = "history-fast-title";
-		const duration = getSafeDurationHours(e, e.startTimestamp, e.endTimestamp);
+		const duration = resolveDurationHours(e, e.startTimestamp, e.endTimestamp);
 		title.textContent = `${type ? type.label : "Custom"} • ${duration.toFixed(1)}h`;
 
 		const start = new Date(e.startTimestamp);
