@@ -1,27 +1,20 @@
 {
-  "mcpServers": {
-    "cloudflare": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@cloudflare/mcp-server-cloudflare"
-      ],
-      "env": {
-        "CLOUDFLARE_API_TOKEN": "${COPILOT_MCP_CLOUDFLARE_API_TOKEN}"
-      }
-    },
-    "firebase": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "firebase-tools@latest",
-        "experimental:mcp"
-      ],
-      "env": {
-        "FIREBASE_TOKEN": "${COPILOT_MCP_FIREBASE_TOKEN}",
-        "FIREBASE_PROJECT": "${COPILOT_MCP_FIREBASE_PROJECT_ID}",
-        "GOOGLE_CLOUD_PROJECT": "${COPILOT_MCP_FIREBASE_PROJECT_ID}"
-      }
-    }
-  }
+	"mcpServers": {
+		"cloudflare": {
+			"command": "npx",
+			"args": ["-y", "@cloudflare/mcp-server-cloudflare"],
+			"env": {
+				"CLOUDFLARE_API_TOKEN": "${COPILOT_MCP_CLOUDFLARE_API_TOKEN}"
+			}
+		},
+		"firebase": {
+			"command": "npx",
+			"args": ["-y", "firebase-tools@latest", "experimental:mcp"],
+			"env": {
+				"FIREBASE_TOKEN": "${COPILOT_MCP_FIREBASE_TOKEN}",
+				"FIREBASE_PROJECT": "${COPILOT_MCP_FIREBASE_PROJECT_ID}",
+				"GOOGLE_CLOUD_PROJECT": "${COPILOT_MCP_FIREBASE_PROJECT_ID}"
+			}
+		}
+	}
 }
