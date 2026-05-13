@@ -662,6 +662,7 @@ body.bg-slate-950 {
 	border-radius: 12px;
 	background: var(--surface-color);
 	padding: 12px;
+	font-size: 12px;
 }
 
 .note-calorie-entry {
