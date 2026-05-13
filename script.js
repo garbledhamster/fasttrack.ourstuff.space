@@ -288,7 +288,7 @@ const SUPPORTED_LLM_PROVIDERS = new Set(["openai", "byo"]);
 const DEFAULT_LLM_PROVIDER = "openai";
 const OPENAI_REASONING_EFFORTS = new Set(["none", "low", "medium", "high"]);
 const OPENAI_MAX_TOKENS_WITH_REASONING = 4096;
-const OPENAI_MAX_TOKENS_STANDARD = 320;
+const OPENAI_MAX_TOKENS_STANDARD = 1024;
 const Z_INDEX_OVERLAY_PORTAL = 11000;
 const MAX_IMPERIAL_HEIGHT_PART = 11;
 const VALID_CALORIE_GOALS = new Set(["lose", "maintain", "gain"]);
@@ -4421,10 +4421,11 @@ const AI_TRAINER_NOTE_MARKER = "ai:trainer-note";
 const AI_TRAINER_QUICK_NOTE_TEXT_TEMPLATE =
 	"You asked: {question} — Trainer replied: {response}";
 const TRAINER_QUICK_QUESTION_MAX_CHARS = 500;
-const TRAINER_QUICK_RESPONSE_MAX_CHARS = 700;
+const TRAINER_QUICK_RESPONSE_MAX_CHARS = 1000;
 // Stored as "prefix + JSON" so future parser versions can migrate safely.
 const TRAINER_NOTE_CONVERSATION_STORAGE_PREFIX = "trainer-chat:v1:";
 const TRAINER_NOTE_CONVERSATION_MAX_CHARS = 500;
+const TRAINER_NOTE_CONVERSATION_RESPONSE_MAX_CHARS = 1500;
 const AI_TRAINER_NOTE_CONVERSATION_PROMPT = [
 	"You are continuing an existing trainer conversation about one specific core note.",
 	"Treat coreNote as the main topic and keep all other app context as supporting context only.",
@@ -5599,7 +5600,7 @@ async function generateAITrainerNoteConversationResponse({
 		const firstParagraph = aiText.split(/\n\s*\n/u)[0] || "";
 		const response = normalizeSingleParagraph(
 			firstParagraph,
-			TRAINER_NOTE_CONVERSATION_MAX_CHARS,
+			TRAINER_NOTE_CONVERSATION_RESPONSE_MAX_CHARS,
 		);
 		if (!response) {
 			showToast("No response from AI");
