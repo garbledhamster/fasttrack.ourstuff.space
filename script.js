@@ -5119,6 +5119,7 @@ async function callAIChatCompletions({
 	userPrompt,
 	purpose,
 	withReasoningFallback = false,
+	forceJsonResponse = false,
 	signal = null,
 	providerOverride = null,
 	modelOverride = null,
@@ -5178,6 +5179,9 @@ async function callAIChatCompletions({
 	if (!usingReasoning || withReasoningFallback) {
 		requestBody.temperature = config.temperature;
 	}
+	if (forceJsonResponse && !usingReasoning && config.provider === "openai") {
+		requestBody.response_format = { type: "json_object" };
+	}
 
 	const headers = {
 		"Content-Type": "application/json",
@@ -5225,15 +5229,19 @@ async function recommendGoalPlanWithAI(providerOverride = null) {
 	const profile = buildGoalRecommendationProfile();
 	const trainerContext = buildTrainerContinuityContext();
 	const recommendationPrompt = [
-		"You are a personal trainer and nutrition coach.",
-		"Recommend a realistic calorie and daily nutrient plan tailored to the user profile.",
+		"You are a personal trainer and certified nutritionist.",
+		"Recommend a realistic calorie target and complete daily nutrient plan tailored to the user profile.",
+		"Use the profile's age, gender, height, currentWeight, fitnessLevel, and goal to calculate personalized targets.",
 		"Always include dailyTarget as the user's target goal calories unless there is not enough profile information to estimate it responsibly.",
 		"When goal is lose, maintain, or gain, make dailyTarget reflect that goal plus the user's instructions, journal notes, fasting schedule, and food preferences.",
 		"Respect the user instructions and account for dietary needs, injuries, limitations, fasting schedule, and completed fasting history.",
 		trainerContext.notes || trainerContext.completedFasts
-			? "The user has shared journal notes - use them to refine your recommendations."
+			? "The user has shared journal notes and fasting history - use them to refine your recommendations."
 			: "",
 		"Use trainerContext.completedFasts and activeFast when present to account for completed and current fasts.",
+		"For nutrientGoals, populate EVERY field with a concrete number when the user's profile provides enough information to make a reasonable estimate.",
+		"Use standard dietary reference values (RDA/DRI) as a baseline, then adjust based on the user's goal, weight, height, age, gender, and fitness level.",
+		"Only use null for a nutrient field when there is truly no basis to estimate it from the profile or standard references.",
 		"Return ONLY valid JSON in this exact shape:",
 		'{"dailyTarget": number|null, "goal": "lose"|"maintain"|"gain"|null, "nutrientGoals": {"macros": {"protein": number|null, "carbs": number|null, "fat": number|null}, "micros": {"sodium": number|null, "potassium": number|null, "calcium": number|null, "iron": number|null, "magnesium": number|null, "zinc": number|null}, "vitamins": {"vitaminA": number|null, "vitaminC": number|null, "vitaminD": number|null, "vitaminB6": number|null, "vitaminB12": number|null}}}.',
 		"Use grams for macros, milligrams for micros and vitaminC/vitaminB6, and micrograms for vitaminA/vitaminD/vitaminB12.",
@@ -5254,6 +5262,7 @@ async function recommendGoalPlanWithAI(providerOverride = null) {
 			systemPrompt: recommendationPrompt,
 			userPrompt: userPayload,
 			purpose: "AI recommendation",
+			forceJsonResponse: true,
 			providerOverride: provider,
 		});
 		if (!data) {
@@ -5303,6 +5312,7 @@ async function estimateCaloriesWithAI(noteContent, providerOverride = null) {
 			userPrompt: compactAIContext({ noteContent: nutritionDetails }),
 			purpose: "AI nutrition estimate",
 			withReasoningFallback: true,
+			forceJsonResponse: true,
 			modelOverride: OPENAI_EXTRACTION_MODEL,
 			providerOverride,
 		});
